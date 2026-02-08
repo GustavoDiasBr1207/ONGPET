@@ -3,15 +3,10 @@ package models
 import "time"
 
 type PedidoAdocao struct {
-	ID           uint64    `gorm:"primaryKey"`
-	Status       string    `gorm:"size:20;not null;default:'pendente';check:status IN ('pendente','aprovado','rejeitado')"`
-	DataCriacao  time.Time `gorm:"autoCreateTime"`
-
-	PetID uint64 `gorm:"not null;index"`
-	Pet   Pet    `gorm:"foreignKey:PetID"`
-
-	OngID uint64 `gorm:"not null"`
-	Ong   Ong    `gorm:"foreignKey:OngID"`
-
-	Respostas []RespostaFormulario
+	ID        uint                 `gorm:"primaryKey" json:"id"`
+	OngID     uint                 `json:"ong_id"`
+	Ong       Ong                  `gorm:"foreignKey:OngID" json:"-" swaggerignore:"true"`
+	Respostas []RespostaFormulario `gorm:"foreignKey:PedidoAdocaoID" json:"respostas,omitempty"`
+	CreatedAt time.Time            `json:"created_at"`
+	UpdatedAt time.Time            `json:"updated_at"`
 }

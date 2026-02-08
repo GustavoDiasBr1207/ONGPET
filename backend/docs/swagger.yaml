@@ -1,0 +1,10 @@
+basePath: /api/v1
+host: localhost:8080
+info:
+  contact:
+    name: Gustavo Dias
+  description: API para gerenciar ONGs, Pets e adoções.
+  title: API OngPet
+  version: "1.0"
+paths: {}
+swagger: "2.0"

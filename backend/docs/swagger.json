@@ -1,0 +1,14 @@
+{
+    "swagger": "2.0",
+    "info": {
+        "description": "API para gerenciar ONGs, Pets e adoções.",
+        "title": "API OngPet",
+        "contact": {
+            "name": "Gustavo Dias"
+        },
+        "version": "1.0"
+    },
+    "host": "localhost:8080",
+    "basePath": "/api/v1",
+    "paths": {}
+}

@@ -1,11 +1,14 @@
 package models
 
-type Ong struct {
-	ID        uint64 `gorm:"primaryKey"`
-	Nome      string `gorm:"size:150;not null"`
-	Descricao string `gorm:"type:text"`
+import "time"
 
-	Pets              []Pet
-	PedidosAdocao     []PedidoAdocao
-	FormulariosModelo []FormularioModelo
+type Ong struct {
+	ID            uint           `gorm:"primaryKey" json:"id"`
+	Nome          string         `gorm:"size:255;not null" json:"nome"`
+	Endereco      string         `gorm:"size:255" json:"endereco"`
+	Telefone      string         `gorm:"size:50" json:"telefone"`
+	Email         string         `gorm:"size:100" json:"email"`
+	PedidosAdocao []PedidoAdocao `gorm:"foreignKey:OngID" json:"pedidosAdocao,omitempty"`
+	CreatedAt     time.Time      `json:"created_at"`
+	UpdatedAt     time.Time      `json:"updated_at"`
 }

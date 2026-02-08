@@ -1,14 +1,14 @@
 package models
 
-type Pet struct {
-	ID         uint64  `gorm:"primaryKey"`
-	Nome       string  `gorm:"size:100;not null"`
-	Sexo       string  `gorm:"size:1;not null;check:sexo IN ('M','F')"`
-	Especie    string  `gorm:"size:20;not null;check:especie IN ('Cachorro','Gato','Outros')"`
-	Porte      *string `gorm:"size:10;check:porte IN ('pequeno','medio','grande')"`
-	Peso       *float64
-	Disponivel bool   `gorm:"default:true"`
+import "time"
 
-	OngID uint64 `gorm:"not null;index"`
-	Ong   Ong    `gorm:"foreignKey:OngID;constraint:OnDelete:CASCADE"`
+type Pet struct {
+	ID        uint      `gorm:"primaryKey" json:"id"`
+	Nome      string    `gorm:"size:100;not null" json:"nome"`
+	Especie   string    `gorm:"size:50" json:"especie"`
+	Raca      string    `gorm:"size:50" json:"raca"`
+	Idade     int       `json:"idade"`
+	OngID     uint      `json:"ong_id"`
+	CreatedAt time.Time `json:"created_at"`
+	UpdatedAt time.Time `json:"updated_at"`
 }

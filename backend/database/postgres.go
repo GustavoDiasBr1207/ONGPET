@@ -2,24 +2,26 @@ package database
 
 import (
 	"log"
-	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
 )
 
+var db *gorm.DB
+
 func Connect(dsn string) *gorm.DB {
-	db, err := gorm.Open(postgres.Open(dsn), &gorm.Config{
-		PrepareStmt: true,
-	})
+	var err error
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	if err != nil {
-		log.Fatal("Erro ao conectar no Supabase:", err)
+		log.Fatal("❌ Erro ao conectar no banco:", err)
 	}
+	log.Println("✅ Conexão com o banco realizada com sucesso")
+	return db
+}
 
-	sqlDB, _ := db.DB()
-	sqlDB.SetMaxOpenConns(10)
-	sqlDB.SetMaxIdleConns(5)
-	sqlDB.SetConnMaxLifetime(time.Hour)
-
+func GetDB() *gorm.DB {
+	if db == nil {
+		log.Fatal("❌ Banco de dados não inicializado")
+	}
 	return db
 }
