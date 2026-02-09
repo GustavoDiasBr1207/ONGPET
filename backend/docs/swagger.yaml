@@ -1,4 +1,75 @@
 basePath: /api/v1
+definitions:
+  models.Ong:
+    properties:
+      created_at:
+        type: string
+      email:
+        type: string
+      endereco:
+        type: string
+      id:
+        type: integer
+      nome:
+        type: string
+      pedidosAdocao:
+        items:
+          $ref: '#/definitions/models.PedidoAdocao'
+        type: array
+      telefone:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.PedidoAdocao:
+    properties:
+      created_at:
+        type: string
+      id:
+        type: integer
+      ong_id:
+        type: integer
+      respostas:
+        items:
+          $ref: '#/definitions/models.RespostaFormulario'
+        type: array
+      updated_at:
+        type: string
+    type: object
+  models.Pet:
+    properties:
+      created_at:
+        type: string
+      especie:
+        type: string
+      id:
+        type: integer
+      idade:
+        type: integer
+      nome:
+        type: string
+      ong_id:
+        type: integer
+      raca:
+        type: string
+      updated_at:
+        type: string
+    type: object
+  models.RespostaFormulario:
+    properties:
+      campoFormularioId:
+        type: integer
+      created_at:
+        type: string
+      id:
+        type: integer
+      pedidoAdocaoId:
+        type: integer
+      updated_at:
+        type: string
+      valor:
+        type: string
+    type: object
 host: localhost:8080
 info:
   contact:
@@ -6,5 +77,89 @@ info:
   description: API para gerenciar ONGs, Pets e adoções.
   title: API OngPet
   version: "1.0"
-paths: {}
+paths:
+  /api/v1/ongs:
+    get:
+      description: Retorna todas as ONGs cadastradas
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Ong'
+            type: array
+      summary: Lista todas as ONGs
+      tags:
+      - ONG
+    post:
+      consumes:
+      - application/json
+      description: Cria uma ONG no sistema
+      parameters:
+      - description: Nova ONG
+        in: body
+        name: ong
+        required: true
+        schema:
+          $ref: '#/definitions/models.Ong'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Ong'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cria uma nova ONG
+      tags:
+      - ONG
+  /api/v1/pets:
+    get:
+      description: Retorna todos os pets cadastrados
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.Pet'
+            type: array
+      summary: Lista todos os Pets
+      tags:
+      - Pet
+    post:
+      consumes:
+      - application/json
+      description: Cria um Pet no sistema
+      parameters:
+      - description: Novo Pet
+        in: body
+        name: pet
+        required: true
+        schema:
+          $ref: '#/definitions/models.Pet'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.Pet'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Cria um novo Pet
+      tags:
+      - Pet
 swagger: "2.0"

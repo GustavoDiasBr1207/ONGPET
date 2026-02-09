@@ -9,7 +9,7 @@ import (
 
 	"github.com/swaggo/files"
 	"github.com/swaggo/gin-swagger"
-	_ "ongpet/docs"
+	_ "ongpet/docs" // importa os docs gerados pelo swag
 
 	"ongpet/database"
 	"ongpet/models"
@@ -22,12 +22,15 @@ import (
 // @host localhost:8080
 // @BasePath /api/v1
 func main() {
+	// Carrega variáveis de ambiente
 	if err := godotenv.Load(); err != nil {
 		log.Println("⚠️ .env não encontrado, usando variáveis do sistema")
 	}
 
+	// Conecta no banco
 	db := database.Connect(os.Getenv("DATABASE_URL"))
 
+	// Roda migrations
 	if err := db.AutoMigrate(
 		&models.Ong{},
 		&models.Pet{},
@@ -39,21 +42,30 @@ func main() {
 		log.Fatal("❌ Erro ao rodar migrations:", err)
 	}
 
+	// Define modo de execução
 	if os.Getenv("GIN_MODE") != "" {
 		gin.SetMode(os.Getenv("GIN_MODE"))
 	}
 
+	// Cria servidor
 	r := gin.Default()
+
+	// Swagger
 	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
 
+	// Health check
 	r.GET("/health", func(c *gin.Context) {
 		c.JSON(200, gin.H{"status": "ok"})
 	})
 
+	// Rotas API v1
 	api := r.Group("/api/v1")
 	{
+		// ONG
 		api.GET("/ongs", GetOngs)
 		api.POST("/ongs", CreateOng)
+
+		// Pet
 		api.GET("/pets", GetPets)
 		api.POST("/pets", CreatePet)
 	}
@@ -62,7 +74,18 @@ func main() {
 	r.Run(":8080")
 }
 
-// Handlers ONG
+// ==========================
+// Handlers com Swagger
+// ==========================
+
+// Ong Handlers
+
+// @Summary Lista todas as ONGs
+// @Description Retorna todas as ONGs cadastradas
+// @Tags ONG
+// @Produce json
+// @Success 200 {array} models.Ong
+// @Router /api/v1/ongs [get]
 func GetOngs(c *gin.Context) {
 	db := database.GetDB()
 	var ongs []models.Ong
@@ -70,6 +93,15 @@ func GetOngs(c *gin.Context) {
 	c.JSON(200, ongs)
 }
 
+// @Summary Cria uma nova ONG
+// @Description Cria uma ONG no sistema
+// @Tags ONG
+// @Accept json
+// @Produce json
+// @Param ong body models.Ong true "Nova ONG"
+// @Success 201 {object} models.Ong
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/ongs [post]
 func CreateOng(c *gin.Context) {
 	db := database.GetDB()
 	var ong models.Ong
@@ -81,7 +113,14 @@ func CreateOng(c *gin.Context) {
 	c.JSON(201, ong)
 }
 
-// Handlers Pet
+// Pet Handlers
+
+// @Summary Lista todos os Pets
+// @Description Retorna todos os pets cadastrados
+// @Tags Pet
+// @Produce json
+// @Success 200 {array} models.Pet
+// @Router /api/v1/pets [get]
 func GetPets(c *gin.Context) {
 	db := database.GetDB()
 	var pets []models.Pet
@@ -89,6 +128,15 @@ func GetPets(c *gin.Context) {
 	c.JSON(200, pets)
 }
 
+// @Summary Cria um novo Pet
+// @Description Cria um Pet no sistema
+// @Tags Pet
+// @Accept json
+// @Produce json
+// @Param pet body models.Pet true "Novo Pet"
+// @Success 201 {object} models.Pet
+// @Failure 400 {object} map[string]string
+// @Router /api/v1/pets [post]
 func CreatePet(c *gin.Context) {
 	db := database.GetDB()
 	var pet models.Pet
