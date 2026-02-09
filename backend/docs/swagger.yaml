@@ -1,4 +1,3 @@
-basePath: /api/v1
 definitions:
   models.Ong:
     properties:
@@ -70,13 +69,8 @@ definitions:
       valor:
         type: string
     type: object
-host: localhost:8080
 info:
-  contact:
-    name: Gustavo Dias
-  description: API para gerenciar ONGs, Pets e adoções.
-  title: API OngPet
-  version: "1.0"
+  contact: {}
 paths:
   /api/v1/ongs:
     get:
