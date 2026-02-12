@@ -3,12 +3,14 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
+
 	"ongpet/controllers"
 	"ongpet/database"
 	"ongpet/models"
 
 	"github.com/joho/godotenv"
-	_ "ongpet/docs" // importa os docs do Swagger
+	_ "ongpet/docs" // Swagger
 )
 
 func main() {
@@ -18,15 +20,27 @@ func main() {
 
 	db := database.Connect(os.Getenv("DATABASE_URL"))
 
-	if err := db.AutoMigrate(
+	err := db.AutoMigrate(
 		&models.Ong{},
 		&models.Pet{},
 		&models.FormularioModelo{},
 		&models.CampoFormulario{},
 		&models.RespostaFormulario{},
 		&models.PedidoAdocao{},
-	); err != nil {
-		log.Fatal("❌ Erro ao rodar migrations:", err)
+	)
+
+	if err != nil {
+		errMsg := err.Error()
+
+		// ignora APENAS erro de tabela já existente
+		if strings.Contains(errMsg, "already exists") ||
+			strings.Contains(errMsg, "42P07") {
+
+			log.Println("⚠️ Tabelas já existem, ignorando AutoMigrate")
+
+		} else {
+			log.Fatal("❌ Erro ao rodar migrations:", err)
+		}
 	}
 
 	r := controllers.SetupRoutes()

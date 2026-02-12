@@ -5,16 +5,24 @@ import (
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
+	"gorm.io/gorm/schema"
 )
 
 var db *gorm.DB
 
 func Connect(dsn string) *gorm.DB {
 	var err error
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
+
+	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+		NamingStrategy: schema.NamingStrategy{
+			SingularTable: true, // 🔒 desliga pluralização automática
+		},
+	})
+
 	if err != nil {
 		log.Fatal("❌ Erro ao conectar no banco:", err)
 	}
+
 	log.Println("✅ Conexão com o banco realizada com sucesso")
 	return db
 }
