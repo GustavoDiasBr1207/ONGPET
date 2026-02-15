@@ -3,7 +3,7 @@ package controllers
 import (
 	"net/http"
 
-	v0 "ongpet/controllers/v0" // importa os handlers
+	v0 "ongpet/controllers/v1" // importa os handlers
 	"github.com/gin-gonic/gin"
 	"github.com/gin-contrib/cors"
 	"github.com/swaggo/files"
