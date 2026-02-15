@@ -72,6 +72,42 @@ definitions:
       valor:
         type: string
     type: object
+  ongpet_controllers_v0.CreateOngInput:
+    properties:
+      email:
+        example: a@b.com
+        type: string
+      endereco:
+        example: Rua A
+        type: string
+      nome:
+        example: Minha ONG
+        type: string
+      nome_responsavel:
+        example: Fulano
+        type: string
+      telefone:
+        example: "123"
+        type: string
+    type: object
+  ongpet_controllers_v1.CreateOngInput:
+    properties:
+      email:
+        example: a@b.com
+        type: string
+      endereco:
+        example: Rua A
+        type: string
+      nome:
+        example: Minha ONG
+        type: string
+      nome_responsavel:
+        example: Fulano
+        type: string
+      telefone:
+        example: "123"
+        type: string
+    type: object
   v0.LoginRequest:
     properties:
       email:
@@ -146,7 +182,7 @@ paths:
         name: ong
         required: true
         schema:
-          $ref: '#/definitions/models.Ong'
+          $ref: '#/definitions/ongpet_controllers_v1.CreateOngInput'
       produces:
       - application/json
       responses:

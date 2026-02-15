@@ -114,7 +114,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Ong"
+                            "$ref": "#/definitions/ongpet_controllers_v1.CreateOngInput"
                         }
                     }
                 ],
@@ -315,6 +315,56 @@ const docTemplate = `{
                 },
                 "valor": {
                     "type": "string"
+                }
+            }
+        },
+        "ongpet_controllers_v0.CreateOngInput": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "a@b.com"
+                },
+                "endereco": {
+                    "type": "string",
+                    "example": "Rua A"
+                },
+                "nome": {
+                    "type": "string",
+                    "example": "Minha ONG"
+                },
+                "nome_responsavel": {
+                    "type": "string",
+                    "example": "Fulano"
+                },
+                "telefone": {
+                    "type": "string",
+                    "example": "123"
+                }
+            }
+        },
+        "ongpet_controllers_v1.CreateOngInput": {
+            "type": "object",
+            "properties": {
+                "email": {
+                    "type": "string",
+                    "example": "a@b.com"
+                },
+                "endereco": {
+                    "type": "string",
+                    "example": "Rua A"
+                },
+                "nome": {
+                    "type": "string",
+                    "example": "Minha ONG"
+                },
+                "nome_responsavel": {
+                    "type": "string",
+                    "example": "Fulano"
+                },
+                "telefone": {
+                    "type": "string",
+                    "example": "123"
                 }
             }
         },
