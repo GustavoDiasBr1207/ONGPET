@@ -33,13 +33,16 @@ func SetupRoutes() *gin.Engine {
 	// Grupo API v1
 	api := r.Group("/api/v1")
 	{
+		// Auth
+		api.POST("/auth/login", v0.Login)
+
 		// ONG
 		api.GET("/ongs", v0.GetOngs)
-		api.POST("/ongs", v0.CreateOng)
+		api.POST("/ongs", RequireAuth(), v0.CreateOng)
 
 		// Pet
 		api.GET("/pets", v0.GetPets)
-		api.POST("/pets", v0.CreatePet)
+		api.POST("/pets", RequireAuth(), v0.CreatePet)
 	}
 
 	// Rota default para não encontradas

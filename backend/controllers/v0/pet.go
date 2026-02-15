@@ -27,6 +27,7 @@ func GetPets(c *gin.Context) {
 // @Param pet body models.Pet true "Novo Pet"
 // @Success 201 {object} models.Pet
 // @Failure 400 {object} map[string]string
+// @Security ApiKeyAuth
 // @Router /api/v1/pets [post]
 func CreatePet(c *gin.Context) {
 	db := database.GetDB()

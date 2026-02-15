@@ -1,3 +1,11 @@
+// @title OngPet API
+// @version 1.0
+// @description API para gerenciar ONGs e pets
+// @host localhost:8080
+// @BasePath /
+// @securityDefinitions.apikey ApiKeyAuth
+// @in header
+// @name Authorization
 package main
 
 import (

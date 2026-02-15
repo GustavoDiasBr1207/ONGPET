@@ -1,3 +1,4 @@
+basePath: /
 definitions:
   models.Ong:
     properties:
@@ -10,6 +11,8 @@ definitions:
       id:
         type: integer
       nome:
+        type: string
+      nome_responsavel:
         type: string
       pedidosAdocao:
         items:
@@ -69,9 +72,55 @@ definitions:
       valor:
         type: string
     type: object
+  v0.LoginRequest:
+    properties:
+      email:
+        type: string
+      password:
+        type: string
+    type: object
+host: localhost:8080
 info:
   contact: {}
+  description: API para gerenciar ONGs e pets
+  title: OngPet API
+  version: "1.0"
 paths:
+  /api/v1/auth/login:
+    post:
+      consumes:
+      - application/json
+      description: Faz login via Supabase e retorna tokens (access_token, etc.)
+      parameters:
+      - description: Credenciais
+        in: body
+        name: credentials
+        required: true
+        schema:
+          $ref: '#/definitions/v0.LoginRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Login
+      tags:
+      - Auth
   /api/v1/ongs:
     get:
       description: Retorna todas as ONGs cadastradas
@@ -111,6 +160,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - ApiKeyAuth: []
       summary: Cria uma nova ONG
       tags:
       - ONG
@@ -153,7 +204,14 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - ApiKeyAuth: []
       summary: Cria um novo Pet
       tags:
       - Pet
+securityDefinitions:
+  ApiKeyAuth:
+    in: header
+    name: Authorization
+    type: apiKey
 swagger: "2.0"

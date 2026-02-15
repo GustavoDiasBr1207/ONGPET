@@ -27,6 +27,7 @@ func GetOngs(c *gin.Context) {
 // @Param ong body models.Ong true "Nova ONG"
 // @Success 201 {object} models.Ong
 // @Failure 400 {object} map[string]string
+// @Security ApiKeyAuth
 // @Router /api/v1/ongs [post]
 func CreateOng(c *gin.Context) {
     db := database.GetDB()

@@ -1,1 +1,3 @@
 DATABASE_URL=urlsenha
+SUPABASE_URL=https://<your-project>.supabase.co
+SUPABASE_KEY=your-supabase-apikey-here
