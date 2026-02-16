@@ -1,34 +1,40 @@
 package models
 
 import (
-	"time"
-
+	"github.com/google/uuid"
 	"gorm.io/datatypes"
+	"gorm.io/gorm"
 )
 
 type FormularioModelo struct {
-	ID        uint              `gorm:"primaryKey" json:"id"`
-	Nome      string            `json:"nome"`
-	Campos    []CampoFormulario `gorm:"foreignKey:FormularioModeloID" json:"campos,omitempty"`
-	CreatedAt time.Time         `json:"created_at"`
-	UpdatedAt time.Time         `json:"updated_at"`
+	gorm.Model
+
+	ID     uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	Nome   string    `gorm:"type:text;not null" json:"nome"`
+	Campos []CampoFormulario `gorm:"foreignKey:FormularioModeloID" json:"campos,omitempty"`
 }
 
 type CampoFormulario struct {
-	ID                 uint           `gorm:"primaryKey" json:"id"`
-	FormularioModeloID uint           `json:"formularioModeloId"`
-	Nome               string         `json:"nome"`
-	Configuracao       datatypes.JSON `json:"-" swaggerignore:"true"` // ignorado no Swagger
-	CreatedAt          time.Time      `json:"created_at"`
-	UpdatedAt          time.Time      `json:"updated_at"`
+	gorm.Model
+
+	ID                 uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	FormularioModeloID uuid.UUID `gorm:"type:uuid;not null" json:"formularioModeloId"`
+
+	Nome         string         `gorm:"type:text;not null" json:"nome"`
+	Configuracao datatypes.JSON `gorm:"type:jsonb" json:"-" swaggerignore:"true"`
+
+	FormularioModelo FormularioModelo `gorm:"foreignKey:FormularioModeloID" json:"-" swaggerignore:"true"`
 }
 
 type RespostaFormulario struct {
-	ID               uint           `gorm:"primaryKey" json:"id"`
-	PedidoAdocaoID   uint           `json:"pedidoAdocaoId"`
-	CampoFormularioID uint          `json:"campoFormularioId"`
-	CampoFormulario  CampoFormulario `gorm:"foreignKey:CampoFormularioID" json:"-" swaggerignore:"true"`
-	Valor            string         `json:"valor"`
-	CreatedAt        time.Time      `json:"created_at"`
-	UpdatedAt        time.Time      `json:"updated_at"`
+	gorm.Model
+
+	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+
+	PedidoAdocaoID    uuid.UUID `gorm:"type:uuid;not null" json:"pedidoAdocaoId"`
+	CampoFormularioID uuid.UUID `gorm:"type:uuid;not null" json:"campoFormularioId"`
+
+	CampoFormulario CampoFormulario `gorm:"foreignKey:CampoFormularioID" json:"-" swaggerignore:"true"`
+
+	Valor string `gorm:"type:text;not null" json:"valor"`
 }

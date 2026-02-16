@@ -3,12 +3,15 @@ package models
 import "time"
 
 type Pet struct {
-	ID        uint      `gorm:"primaryKey" json:"id"`
-	Nome      string    `gorm:"size:100;not null" json:"nome"`
-	Especie   string    `gorm:"size:50" json:"especie"`
-	Raca      string    `gorm:"size:50" json:"raca"`
-	Idade     int       `json:"idade"`
-	OngID     uint      `json:"ong_id"`
-	CreatedAt time.Time `json:"created_at"`
-	UpdatedAt time.Time `json:"updated_at"`
+	gorm.Model
+
+	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+
+	Nome    string `gorm:"type:text;not null"`
+	Especie string `gorm:"type:text"`
+	Raca    string `gorm:"type:text"`
+	Idade   int    `gorm:"not null"`
+
+	OngID uuid.UUID `gorm:"type:uuid;not null"`
+	Ong   Ong       `gorm:"foreignKey:OngID;references:ID"`
 }
