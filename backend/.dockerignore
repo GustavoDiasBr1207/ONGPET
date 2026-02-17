@@ -1,0 +1,9 @@
+.env
+.envmodel.txt
+readme.txt
+.air.toml
+tmp/
+docs/
+*.md
+.git/
+.gitignore
