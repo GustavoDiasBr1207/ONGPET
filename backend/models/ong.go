@@ -1,15 +1,11 @@
 package models
 
-import "time"
-
 type Ong struct {
-	gorm.Model
+	BaseModel `swaggerignore:"true"`
 
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
-
-	Nome             string `gorm:"type:text;not null"`
-	Endereco         string `gorm:"type:text"`
-	Telefone         string `gorm:"type:text"`
-	NomeResponsavel  string `gorm:"type:text"`
-	Email            string `gorm:"type:text;unique"`
+	Nome            string `gorm:"type:text;not null" json:"nome"`
+	Endereco        string `gorm:"type:text" json:"endereco"`
+	Telefone        string `gorm:"type:text" json:"telefone"`
+	NomeResponsavel string `gorm:"type:text" json:"nome_responsavel"`
+	Email           string `gorm:"type:text;unique" json:"email"`
 }

@@ -1,9 +1,9 @@
 package v0
 
 import (
-    "ongpet/database"
-    "ongpet/models"
-    "github.com/gin-gonic/gin"
+	"github.com/gin-gonic/gin"
+	"ongpet/database"
+	"ongpet/models"
 )
 
 // @Summary Lista todos os Pets

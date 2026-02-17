@@ -1,17 +1,15 @@
 package models
 
-import "time"
+import "github.com/google/uuid"
 
 type Pet struct {
-	gorm.Model
+	BaseModel `swaggerignore:"true"`
 
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()"`
+	Nome    string `gorm:"type:text;not null" json:"nome"`
+	Especie string `gorm:"type:text" json:"especie"`
+	Raca    string `gorm:"type:text" json:"raca"`
+	Idade   int    `gorm:"not null" json:"idade"`
 
-	Nome    string `gorm:"type:text;not null"`
-	Especie string `gorm:"type:text"`
-	Raca    string `gorm:"type:text"`
-	Idade   int    `gorm:"not null"`
-
-	OngID uuid.UUID `gorm:"type:uuid;not null"`
-	Ong   Ong       `gorm:"foreignKey:OngID;references:ID"`
+	OngID uuid.UUID `gorm:"type:uuid;not null" json:"ong_id"`
+	Ong   Ong       `gorm:"foreignKey:OngID;references:ID" json:"-" swaggerignore:"true"`
 }

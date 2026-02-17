@@ -13,9 +13,13 @@ var db *gorm.DB
 func Connect(dsn string) *gorm.DB {
 	var err error
 
-	db, err = gorm.Open(postgres.Open(dsn), &gorm.Config{
+	db, err = gorm.Open(postgres.New(postgres.Config{
+		DSN:                  dsn,
+		PreferSimpleProtocol: true, // 🔥 DESLIGA prepared statements do pgx
+	}), &gorm.Config{
+		PrepareStmt: false, // 🔥 DESLIGA prepared statements do GORM
 		NamingStrategy: schema.NamingStrategy{
-			SingularTable: true, // 🔒 desliga pluralização automática
+			SingularTable: true, // 🔒 sem plural automático
 		},
 	})
 

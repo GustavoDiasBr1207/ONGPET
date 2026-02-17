@@ -26,15 +26,22 @@ func main() {
 		log.Println("⚠️ .env não encontrado, usando variáveis do sistema")
 	}
 
-	db := database.Connect(os.Getenv("DATABASE_URL"))
+		db := database.Connect(os.Getenv("DATABASE_URL"))
 
-	err := db.AutoMigrate(
+		err := db.AutoMigrate(
+		// base
 		&models.Ong{},
+
+		// dependem de Ong
 		&models.Pet{},
+		&models.PedidoAdocao{},
+
+		// formulário
 		&models.FormularioModelo{},
 		&models.CampoFormulario{},
+
+		// depende de PedidoAdocao + CampoFormulario
 		&models.RespostaFormulario{},
-		&models.PedidoAdocao{},
 	)
 
 	if err != nil {

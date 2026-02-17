@@ -2,95 +2,31 @@ basePath: /
 definitions:
   models.Ong:
     properties:
-      created_at:
-        type: string
       email:
         type: string
       endereco:
         type: string
-      id:
-        type: integer
       nome:
         type: string
       nome_responsavel:
         type: string
-      pedidosAdocao:
-        items:
-          $ref: '#/definitions/models.PedidoAdocao'
-        type: array
       telefone:
-        type: string
-      updated_at:
-        type: string
-    type: object
-  models.PedidoAdocao:
-    properties:
-      created_at:
-        type: string
-      id:
-        type: integer
-      ong_id:
-        type: integer
-      respostas:
-        items:
-          $ref: '#/definitions/models.RespostaFormulario'
-        type: array
-      updated_at:
         type: string
     type: object
   models.Pet:
     properties:
-      created_at:
-        type: string
       especie:
         type: string
-      id:
-        type: integer
       idade:
         type: integer
       nome:
         type: string
       ong_id:
-        type: integer
+        type: string
       raca:
         type: string
-      updated_at:
-        type: string
     type: object
-  models.RespostaFormulario:
-    properties:
-      campoFormularioId:
-        type: integer
-      created_at:
-        type: string
-      id:
-        type: integer
-      pedidoAdocaoId:
-        type: integer
-      updated_at:
-        type: string
-      valor:
-        type: string
-    type: object
-  ongpet_controllers_v0.CreateOngInput:
-    properties:
-      email:
-        example: a@b.com
-        type: string
-      endereco:
-        example: Rua A
-        type: string
-      nome:
-        example: Minha ONG
-        type: string
-      nome_responsavel:
-        example: Fulano
-        type: string
-      telefone:
-        example: "123"
-        type: string
-    type: object
-  ongpet_controllers_v1.CreateOngInput:
+  v0.CreateOngInput:
     properties:
       email:
         example: a@b.com
@@ -114,6 +50,19 @@ definitions:
         type: string
       password:
         type: string
+    type: object
+  v0.OngListResponse:
+    properties:
+      dados:
+        items:
+          $ref: '#/definitions/models.Ong'
+        type: array
+      proxima_pagina:
+        type: boolean
+      total_paginas:
+        type: integer
+      total_registros:
+        type: integer
     type: object
 host: localhost:8080
 info:
@@ -166,9 +115,7 @@ paths:
         "200":
           description: OK
           schema:
-            items:
-              $ref: '#/definitions/models.Ong'
-            type: array
+            $ref: '#/definitions/v0.OngListResponse'
       summary: Lista todas as ONGs
       tags:
       - ONG
@@ -182,7 +129,7 @@ paths:
         name: ong
         required: true
         schema:
-          $ref: '#/definitions/ongpet_controllers_v1.CreateOngInput'
+          $ref: '#/definitions/v0.CreateOngInput'
       produces:
       - application/json
       responses:
@@ -199,6 +146,93 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Cria uma nova ONG
+      tags:
+      - ONG
+  /api/v1/ongs/{id}:
+    delete:
+      description: Remove uma ONG pelo ID
+      parameters:
+      - description: ID da ONG
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove uma ONG
+      tags:
+      - ONG
+    put:
+      consumes:
+      - application/json
+      description: Atualiza os dados de uma ONG pelo ID
+      parameters:
+      - description: ID da ONG
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados para atualização
+        in: body
+        name: ong
+        required: true
+        schema:
+          $ref: '#/definitions/v0.CreateOngInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              ong:
+                $ref: '#/definitions/models.Ong'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Atualiza uma ONG existente
       tags:
       - ONG
   /api/v1/pets:

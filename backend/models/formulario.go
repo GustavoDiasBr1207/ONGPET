@@ -3,21 +3,18 @@ package models
 import (
 	"github.com/google/uuid"
 	"gorm.io/datatypes"
-	"gorm.io/gorm"
 )
 
 type FormularioModelo struct {
-	gorm.Model
+	BaseModel `swaggerignore:"true"`
 
-	ID     uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
-	Nome   string    `gorm:"type:text;not null" json:"nome"`
+	Nome   string            `gorm:"type:text;not null" json:"nome"`
 	Campos []CampoFormulario `gorm:"foreignKey:FormularioModeloID" json:"campos,omitempty"`
 }
 
 type CampoFormulario struct {
-	gorm.Model
+	BaseModel `swaggerignore:"true"`
 
-	ID                 uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
 	FormularioModeloID uuid.UUID `gorm:"type:uuid;not null" json:"formularioModeloId"`
 
 	Nome         string         `gorm:"type:text;not null" json:"nome"`
@@ -27,9 +24,7 @@ type CampoFormulario struct {
 }
 
 type RespostaFormulario struct {
-	gorm.Model
-
-	ID uuid.UUID `gorm:"type:uuid;primaryKey;default:gen_random_uuid()" json:"id"`
+	BaseModel `swaggerignore:"true"`
 
 	PedidoAdocaoID    uuid.UUID `gorm:"type:uuid;not null" json:"pedidoAdocaoId"`
 	CampoFormularioID uuid.UUID `gorm:"type:uuid;not null" json:"campoFormularioId"`

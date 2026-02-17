@@ -9,9 +9,9 @@ type CampoFormularioDTO struct {
 }
 
 type RespostaFormularioDTO struct {
-	ID              uuid.UUID           `json:"id"`
-	CampoFormulario CampoFormularioDTO  `json:"campoFormulario"`
-	Valor           string              `json:"valor"`
+	ID              uuid.UUID          `json:"id"`
+	CampoFormulario CampoFormularioDTO `json:"campoFormulario"`
+	Valor           string             `json:"valor"`
 }
 
 type PedidoAdocaoDTO struct {

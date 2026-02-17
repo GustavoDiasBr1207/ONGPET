@@ -3,16 +3,17 @@ package controllers
 import (
 	"net/http"
 
-	v0 "ongpet/controllers/v1" // importa os handlers
-	"github.com/gin-gonic/gin"
+	v0 "ongpet/controllers/v1"
+
 	"github.com/gin-contrib/cors"
-	"github.com/swaggo/files"
-	"github.com/swaggo/gin-swagger"
+	"github.com/gin-gonic/gin"
+	swaggerFiles "github.com/swaggo/files"
+	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
 // SetupRoutes configura todas as rotas da API OngPet
 func SetupRoutes() *gin.Engine {
-	r := gin.Default() // usa Default para já ter Logger e Recovery
+	r := gin.Default()
 
 	// CORS
 	config := cors.DefaultConfig()
@@ -27,25 +28,27 @@ func SetupRoutes() *gin.Engine {
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {
-		c.JSON(200, gin.H{"status": "ok"})
+		c.JSON(http.StatusOK, gin.H{"status": "ok"})
 	})
 
-	// Grupo API v1
+	// API v1
 	api := r.Group("/api/v1")
 	{
-		// Auth
+		// Auth (NÃO retorna error)
 		api.POST("/auth/login", v0.Login)
 
-		// ONG
-		api.GET("/ongs", v0.GetOngs)
-		api.POST("/ongs", RequireAuth(), v0.CreateOng)
+		// ONG (retornam error)
+		api.GET("/ongs", Handle(v0.ReadOngs))
+		api.POST("/ongs", RequireAuth(), Handle(v0.CreateOng))
+		api.PUT("/ongs/:id", RequireAuth(), Handle(v0.UpdateOng))
+		api.DELETE("/ongs/:id", RequireAuth(), Handle(v0.DeleteOng))
 
-		// Pet
+		// Pet (NÃO retornam error)
 		api.GET("/pets", v0.GetPets)
 		api.POST("/pets", RequireAuth(), v0.CreatePet)
 	}
 
-	// Rota default para não encontradas
+	// 404
 	r.NoRoute(func(c *gin.Context) {
 		c.JSON(http.StatusNotFound, gin.H{"error": "rota não encontrada"})
 	})

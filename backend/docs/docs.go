@@ -82,10 +82,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.Ong"
-                            }
+                            "$ref": "#/definitions/v0.OngListResponse"
                         }
                     }
                 }
@@ -114,7 +111,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/ongpet_controllers_v1.CreateOngInput"
+                            "$ref": "#/definitions/v0.CreateOngInput"
                         }
                     }
                 ],
@@ -127,6 +124,142 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ongs/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Atualiza os dados de uma ONG pelo ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ONG"
+                ],
+                "summary": "Atualiza uma ONG existente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ONG",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Dados para atualização",
+                        "name": "ong",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.CreateOngInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "ong": {
+                                    "$ref": "#/definitions/models.Ong"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove uma ONG pelo ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ONG"
+                ],
+                "summary": "Remove uma ONG",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ONG",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -211,17 +344,11 @@ const docTemplate = `{
         "models.Ong": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
                 "email": {
                     "type": "string"
                 },
                 "endereco": {
                     "type": "string"
-                },
-                "id": {
-                    "type": "integer"
                 },
                 "nome": {
                     "type": "string"
@@ -229,39 +356,7 @@ const docTemplate = `{
                 "nome_responsavel": {
                     "type": "string"
                 },
-                "pedidosAdocao": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.PedidoAdocao"
-                    }
-                },
                 "telefone": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
-                }
-            }
-        },
-        "models.PedidoAdocao": {
-            "type": "object",
-            "properties": {
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "ong_id": {
-                    "type": "integer"
-                },
-                "respostas": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/models.RespostaFormulario"
-                    }
-                },
-                "updated_at": {
                     "type": "string"
                 }
             }
@@ -269,14 +364,8 @@ const docTemplate = `{
         "models.Pet": {
             "type": "object",
             "properties": {
-                "created_at": {
-                    "type": "string"
-                },
                 "especie": {
                     "type": "string"
-                },
-                "id": {
-                    "type": "integer"
                 },
                 "idade": {
                     "type": "integer"
@@ -285,65 +374,14 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ong_id": {
-                    "type": "integer"
+                    "type": "string"
                 },
                 "raca": {
                     "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         },
-        "models.RespostaFormulario": {
-            "type": "object",
-            "properties": {
-                "campoFormularioId": {
-                    "type": "integer"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "integer"
-                },
-                "pedidoAdocaoId": {
-                    "type": "integer"
-                },
-                "updated_at": {
-                    "type": "string"
-                },
-                "valor": {
-                    "type": "string"
-                }
-            }
-        },
-        "ongpet_controllers_v0.CreateOngInput": {
-            "type": "object",
-            "properties": {
-                "email": {
-                    "type": "string",
-                    "example": "a@b.com"
-                },
-                "endereco": {
-                    "type": "string",
-                    "example": "Rua A"
-                },
-                "nome": {
-                    "type": "string",
-                    "example": "Minha ONG"
-                },
-                "nome_responsavel": {
-                    "type": "string",
-                    "example": "Fulano"
-                },
-                "telefone": {
-                    "type": "string",
-                    "example": "123"
-                }
-            }
-        },
-        "ongpet_controllers_v1.CreateOngInput": {
+        "v0.CreateOngInput": {
             "type": "object",
             "properties": {
                 "email": {
@@ -376,6 +414,26 @@ const docTemplate = `{
                 },
                 "password": {
                     "type": "string"
+                }
+            }
+        },
+        "v0.OngListResponse": {
+            "type": "object",
+            "properties": {
+                "dados": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Ong"
+                    }
+                },
+                "proxima_pagina": {
+                    "type": "boolean"
+                },
+                "total_paginas": {
+                    "type": "integer"
+                },
+                "total_registros": {
+                    "type": "integer"
                 }
             }
         }
