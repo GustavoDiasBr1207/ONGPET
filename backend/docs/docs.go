@@ -284,10 +284,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "array",
-                            "items": {
-                                "$ref": "#/definitions/models.Pet"
-                            }
+                            "$ref": "#/definitions/v0.PetListResponse"
                         }
                     }
                 }
@@ -316,7 +313,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/models.Pet"
+                            "$ref": "#/definitions/v0.CreatePetInput"
                         }
                     }
                 ],
@@ -329,6 +326,115 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pets/{id}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Atualiza os dados de um Pet pelo ID",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pet"
+                ],
+                "summary": "Atualiza um Pet existente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Pet",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Dados para atualização",
+                        "name": "pet",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v0.CreatePetInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "pet": {
+                                    "$ref": "#/definitions/models.Pet"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove um Pet pelo ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pet"
+                ],
+                "summary": "Remove um Pet",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Pet",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -406,6 +512,31 @@ const docTemplate = `{
                 }
             }
         },
+        "v0.CreatePetInput": {
+            "type": "object",
+            "properties": {
+                "especie": {
+                    "type": "string",
+                    "example": "Cachorro"
+                },
+                "idade": {
+                    "type": "integer",
+                    "example": 3
+                },
+                "nome": {
+                    "type": "string",
+                    "example": "Rex"
+                },
+                "ong_id": {
+                    "type": "string",
+                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                },
+                "raca": {
+                    "type": "string",
+                    "example": "Vira-lata"
+                }
+            }
+        },
         "v0.LoginRequest": {
             "type": "object",
             "properties": {
@@ -424,6 +555,26 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.Ong"
+                    }
+                },
+                "proxima_pagina": {
+                    "type": "boolean"
+                },
+                "total_paginas": {
+                    "type": "integer"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
+        "v0.PetListResponse": {
+            "type": "object",
+            "properties": {
+                "dados": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Pet"
                     }
                 },
                 "proxima_pagina": {

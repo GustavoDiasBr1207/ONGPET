@@ -44,8 +44,10 @@ func SetupRoutes() *gin.Engine {
 		api.DELETE("/ongs/:id", RequireAuth(), Handle(v0.DeleteOng))
 
 		// Pet (NÃO retornam error)
-		api.GET("/pets", v0.GetPets)
-		api.POST("/pets", RequireAuth(), v0.CreatePet)
+		api.GET("/pets", Handle(v0.ReadPets))
+		api.POST("/pets", RequireAuth(), Handle(v0.CreatePet))
+		api.PUT("/pets/:id", RequireAuth(), Handle(v0.UpdatePet))
+		api.DELETE("/pets/:id", RequireAuth(), Handle(v0.DeletePet))
 	}
 
 	// 404
