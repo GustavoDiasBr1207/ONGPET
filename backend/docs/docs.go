@@ -464,12 +464,18 @@ const docTemplate = `{
                 },
                 "telefone": {
                     "type": "string"
+                },
+                "user_id": {
+                    "type": "string"
                 }
             }
         },
         "models.Pet": {
             "type": "object",
             "properties": {
+                "descricao": {
+                    "type": "string"
+                },
                 "especie": {
                     "type": "string"
                 },
@@ -482,7 +488,13 @@ const docTemplate = `{
                 "ong_id": {
                     "type": "string"
                 },
+                "peso": {
+                    "type": "number"
+                },
                 "raca": {
+                    "type": "string"
+                },
+                "regiao": {
                     "type": "string"
                 }
             }

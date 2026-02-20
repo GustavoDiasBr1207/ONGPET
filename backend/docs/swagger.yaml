@@ -12,9 +12,13 @@ definitions:
         type: string
       telefone:
         type: string
+      user_id:
+        type: string
     type: object
   models.Pet:
     properties:
+      descricao:
+        type: string
       especie:
         type: string
       idade:
@@ -23,7 +27,11 @@ definitions:
         type: string
       ong_id:
         type: string
+      peso:
+        type: number
       raca:
+        type: string
+      regiao:
         type: string
     type: object
   v0.CreateOngInput:
