@@ -479,8 +479,19 @@ const docTemplate = `{
                 "especie": {
                     "type": "string"
                 },
+                "formulario_id": {
+                    "description": "OPCIONAL",
+                    "type": "string"
+                },
                 "idade": {
                     "type": "integer"
+                },
+                "imagens": {
+                    "description": "ARRAY PostgreSQL (text[])",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "nome": {
                     "type": "string"
@@ -490,6 +501,9 @@ const docTemplate = `{
                 },
                 "peso": {
                     "type": "number"
+                },
+                "porte": {
+                    "type": "string"
                 },
                 "raca": {
                     "type": "string"
@@ -527,25 +541,43 @@ const docTemplate = `{
         "v0.CreatePetInput": {
             "type": "object",
             "properties": {
+                "descricao": {
+                    "type": "string"
+                },
                 "especie": {
-                    "type": "string",
-                    "example": "Cachorro"
+                    "type": "string"
+                },
+                "formulario_id": {
+                    "description": "opcional",
+                    "type": "string"
                 },
                 "idade": {
-                    "type": "integer",
-                    "example": 3
+                    "type": "integer"
+                },
+                "imagens": {
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
                 },
                 "nome": {
-                    "type": "string",
-                    "example": "Rex"
+                    "type": "string"
                 },
                 "ong_id": {
-                    "type": "string",
-                    "example": "550e8400-e29b-41d4-a716-446655440000"
+                    "description": "obrigatório",
+                    "type": "string"
+                },
+                "peso": {
+                    "type": "number"
+                },
+                "porte": {
+                    "type": "string"
                 },
                 "raca": {
-                    "type": "string",
-                    "example": "Vira-lata"
+                    "type": "string"
+                },
+                "regiao": {
+                    "type": "string"
                 }
             }
         },

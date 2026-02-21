@@ -21,14 +21,24 @@ definitions:
         type: string
       especie:
         type: string
+      formulario_id:
+        description: OPCIONAL
+        type: string
       idade:
         type: integer
+      imagens:
+        description: ARRAY PostgreSQL (text[])
+        items:
+          type: string
+        type: array
       nome:
         type: string
       ong_id:
         type: string
       peso:
         type: number
+      porte:
+        type: string
       raca:
         type: string
       regiao:
@@ -54,20 +64,31 @@ definitions:
     type: object
   v0.CreatePetInput:
     properties:
+      descricao:
+        type: string
       especie:
-        example: Cachorro
+        type: string
+      formulario_id:
+        description: opcional
         type: string
       idade:
-        example: 3
         type: integer
+      imagens:
+        items:
+          type: string
+        type: array
       nome:
-        example: Rex
         type: string
       ong_id:
-        example: 550e8400-e29b-41d4-a716-446655440000
+        description: obrigatório
+        type: string
+      peso:
+        type: number
+      porte:
         type: string
       raca:
-        example: Vira-lata
+        type: string
+      regiao:
         type: string
     type: object
   v0.LoginRequest:

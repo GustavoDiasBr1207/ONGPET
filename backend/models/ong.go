@@ -1,5 +1,7 @@
 package models
 
+import "github.com/google/uuid"
+
 type Ong struct {
 	BaseModel `swaggerignore:"true"`
 

@@ -12,16 +12,22 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/lib/pq" // 👈 FALTAVA ISSO
 	"gorm.io/gorm"
 )
 
-// CreatePetInput representa o payload para criação/atualização de Pet
 type CreatePetInput struct {
-	Nome    string    `json:"nome" example:"Rex"`
-	Especie string    `json:"especie" example:"Cachorro"`
-	Raca    string    `json:"raca" example:"Vira-lata"`
-	Idade   int       `json:"idade" example:"3"`
-	OngID   uuid.UUID `json:"ong_id" example:"550e8400-e29b-41d4-a716-446655440000"`
+    Nome         string     `json:"nome"`
+    Especie      string     `json:"especie"`
+    Raca         string     `json:"raca"`
+    Idade        int        `json:"idade"`
+    Descricao    string     `json:"descricao"`
+    Peso         float64    `json:"peso"`
+    Porte        string     `json:"porte"`
+    Regiao       string     `json:"regiao"`
+    Imagens      []string   `json:"imagens"`
+    FormularioID *uuid.UUID `json:"formulario_id"` // opcional
+    OngID        uuid.UUID  `json:"ong_id"`        // obrigatório
 }
 
 type PetListResponse struct {
@@ -41,18 +47,28 @@ func ReadPets(c *gin.Context) error {
 	db := database.GetDB()
 	query := db.Model(&models.Pet{})
 
-	if nome := c.Query("nome"); nome != "" {
+	// filtros
+	if nome := strings.TrimSpace(c.Query("nome")); nome != "" {
 		query = query.Where("nome ILIKE ?", "%"+nome+"%")
 	}
 
-	if especie := c.Query("especie"); especie != "" {
+	if especie := strings.TrimSpace(c.Query("especie")); especie != "" {
 		query = query.Where("especie ILIKE ?", "%"+especie+"%")
 	}
 
-	if ongID := c.Query("ong_id"); ongID != "" {
+	if porte := strings.TrimSpace(c.Query("porte")); porte != "" {
+		query = query.Where("porte = ?", porte)
+	}
+
+	if regiao := strings.TrimSpace(c.Query("regiao")); regiao != "" {
+		query = query.Where("regiao ILIKE ?", "%"+regiao+"%")
+	}
+
+	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
 		query = query.Where("ong_id = ?", ongID)
 	}
 
+	// paginação
 	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "10")
 
@@ -109,46 +125,67 @@ func ReadPets(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pets [post]
 func CreatePet(c *gin.Context) error {
-	var req CreatePetInput
+    var req CreatePetInput
 
-	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
-	}
+    if err := c.ShouldBindJSON(&req); err != nil {
+        return err
+    }
 
-	req.Nome = strings.TrimSpace(req.Nome)
+    req.Nome = strings.TrimSpace(req.Nome)
 
-	if req.Nome == "" {
-		return errors.New("nome é obrigatório")
-	}
+    if req.Nome == "" {
+        return errors.New("nome é obrigatório")
+    }
+    if req.Idade <= 0 {
+        return errors.New("idade inválida")
+    }
+    if req.Peso <= 0 {
+        return errors.New("peso inválido")
+    }
+    if req.OngID == uuid.Nil {
+        return errors.New("ong_id é obrigatório")
+    }
+    if len(req.Imagens) > 5 {
+        return errors.New("máximo de 5 imagens")
+    }
 
-	db := database.GetDB()
+    db := database.GetDB()
 
-	// valida se a ONG existe
-	if err := db.Where("id = ?", req.OngID).First(&models.Ong{}).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("ONG não encontrada")
-		}
-		return err
-	}
+    if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return errors.New("ONG não encontrada")
+        }
+        return err
+    }
 
-	pet := models.Pet{
-		Nome:    req.Nome,
-		Especie: req.Especie,
-		Raca:    req.Raca,
-		Idade:   req.Idade,
-		OngID:   req.OngID,
-	}
+    pet := models.Pet{
+        Nome:      req.Nome,
+        Especie:   req.Especie,
+        Raca:      req.Raca,
+        Idade:     req.Idade,
+        Descricao: req.Descricao,
+        Peso:      req.Peso,
+        Porte:     req.Porte,
+        Regiao:    req.Regiao,
+        Imagens:   pq.StringArray(req.Imagens),
+        OngID:     req.OngID,
+    }
 
-	if err := db.Create(&pet).Error; err != nil {
-		return err
-	}
+    // ✅ CORRETO: verifica se o ponteiro não é nil e se não é uuid.Nil
+    if req.FormularioID != nil && *req.FormularioID != uuid.Nil {
+        pet.FormularioID = req.FormularioID
+    }
 
-	c.JSON(http.StatusCreated, gin.H{
-		"message": "Pet criado com sucesso",
-		"pet":     pet,
-	})
+    if err := db.Create(&pet).Error; err != nil {
+        return err
+    }
 
-	return nil
+    c.JSON(http.StatusCreated, gin.H{
+        "message": "Pet criado com sucesso",
+        "pet":     pet,
+    })
+
+    return nil
 }
 
 // @Summary Atualiza um Pet existente
@@ -163,48 +200,74 @@ func CreatePet(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id} [put]
 func UpdatePet(c *gin.Context) error {
-	var req CreatePetInput
-	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
-	}
+    var req CreatePetInput
+    if err := c.ShouldBindJSON(&req); err != nil {
+        return err
+    }
 
-	db := database.GetDB()
-	id := c.Param("id")
+    db := database.GetDB()
+    id := c.Param("id")
 
-	var pet models.Pet
-	if err := db.Where("id = ?", id).First(&pet).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Pet não encontrado")
-		}
-		return err
-	}
+    var pet models.Pet
+    if err := db.Where("id = ?", id).First(&pet).Error; err != nil {
+        if errors.Is(err, gorm.ErrRecordNotFound) {
+            return errors.New("Pet não encontrado")
+        }
+        return err
+    }
 
-	if strings.TrimSpace(req.Nome) != "" {
-		pet.Nome = strings.TrimSpace(req.Nome)
-	}
-	if req.Especie != "" {
-		pet.Especie = req.Especie
-	}
-	if req.Raca != "" {
-		pet.Raca = req.Raca
-	}
-	if req.Idade > 0 {
-		pet.Idade = req.Idade
-	}
-	if req.OngID != uuid.Nil {
-		pet.OngID = req.OngID
-	}
+    // update parcial
+    if nome := strings.TrimSpace(req.Nome); nome != "" {
+        pet.Nome = nome
+    }
+    if req.Especie != "" {
+        pet.Especie = req.Especie
+    }
+    if req.Raca != "" {
+        pet.Raca = req.Raca
+    }
+    if req.Idade > 0 {
+        pet.Idade = req.Idade
+    }
+    if req.Descricao != "" {
+        pet.Descricao = req.Descricao
+    }
+    if req.Peso > 0 {
+        pet.Peso = req.Peso
+    }
+    if req.Porte != "" {
+        pet.Porte = req.Porte
+    }
+    if req.Regiao != "" {
+        pet.Regiao = req.Regiao
+    }
 
-	if err := db.Save(&pet).Error; err != nil {
-		return err
-	}
+    // permite atualizar ou limpar imagens
+    if req.Imagens != nil {
+        if len(req.Imagens) > 5 {
+            return errors.New("máximo de 5 imagens")
+        }
+        pet.Imagens = req.Imagens
+    }
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "Pet atualizado com sucesso",
-		"pet":     pet,
-	})
+    // permite atualizar formulario_id e ong_id de forma segura
+    if req.FormularioID != nil && *req.FormularioID != uuid.Nil {
+        pet.FormularioID = req.FormularioID
+    }
+    if req.OngID != uuid.Nil {
+        pet.OngID = req.OngID
+    }
 
-	return nil
+    if err := db.Save(&pet).Error; err != nil {
+        return err
+    }
+
+    c.JSON(http.StatusOK, gin.H{
+        "message": "Pet atualizado com sucesso",
+        "pet":     pet,
+    })
+
+    return nil
 }
 
 // @Summary Remove um Pet
@@ -218,9 +281,14 @@ func UpdatePet(c *gin.Context) error {
 // @Router /api/v1/pets/{id} [delete]
 func DeletePet(c *gin.Context) error {
 	db := database.GetDB()
-	id := c.Param("id")
 
-	result := db.Where("id = ?", id).Delete(&models.Pet{})
+	idParam := c.Param("id")
+	petID, err := uuid.Parse(idParam)
+	if err != nil {
+		return errors.New("ID do pet inválido")
+	}
+
+	result := db.Where("id = ?", petID).Delete(&models.Pet{})
 	if result.Error != nil {
 		return result.Error
 	}
