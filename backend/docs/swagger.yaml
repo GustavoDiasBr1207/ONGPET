@@ -406,6 +406,51 @@ paths:
       summary: Atualiza um Pet existente
       tags:
       - Pet
+  /api/v1/pets/{id}/imagens:
+    post:
+      consumes:
+      - multipart/form-data
+      description: Faz upload de até 5 imagens para o Pet pelo ID (usando Supabase)
+      parameters:
+      - description: ID do Pet
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Imagens do Pet (até 5)
+        in: formData
+        name: imagens
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              pet:
+                $ref: '#/definitions/models.Pet'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Adiciona imagens a um Pet existente
+      tags:
+      - Pet
 securityDefinitions:
   ApiKeyAuth:
     in: header

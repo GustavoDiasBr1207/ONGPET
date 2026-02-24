@@ -9,6 +9,7 @@ import (
 
 	"ongpet/database"
 	"ongpet/models"
+    "ongpet/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -186,6 +187,85 @@ func CreatePet(c *gin.Context) error {
     })
 
     return nil
+}
+
+// @Summary Adiciona imagens a um Pet existente
+// @Description Faz upload de até 5 imagens para o Pet pelo ID (usando Supabase)
+// @Tags Pet
+// @Security ApiKeyAuth
+// @Accept multipart/form-data
+// @Produce json
+// @Param id path string true "ID do Pet"
+// @Param imagens formData file true "Imagens do Pet (até 5)"
+// @Success 200 {object} object{message=string,pet=models.Pet}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/pets/{id}/imagens [post]
+func UploadPetImages(c *gin.Context) error {
+	db := database.GetDB()
+
+	// 🔎 BUSCA PET
+	idParam := c.Param("id")
+	petID, err := uuid.Parse(idParam)
+	if err != nil {
+		return errors.New("ID do pet inválido")
+	}
+
+	var pet models.Pet
+	if err := db.First(&pet, "id = ?", petID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Pet não encontrado")
+		}
+		return err
+	}
+
+	// 📸 MULTIPART FORM
+	form, err := c.MultipartForm()
+	if err != nil || form.File == nil {
+		return errors.New("nenhuma imagem enviada")
+	}
+
+	files := form.File["imagens"]
+	if len(files) == 0 {
+		return errors.New("nenhuma imagem enviada")
+	}
+
+	totalAtual := len(pet.Imagens)
+	if totalAtual+len(files) > 5 {
+		return errors.New("o pet pode ter no máximo 5 imagens")
+	}
+
+	// 🔁 UPLOAD SUPABASE
+	var uploadedURLs []string
+	for _, file := range files {
+		if !utils.IsValidImage(file) {
+			return errors.New("tipo de imagem inválido")
+		}
+
+		// utils.UploadFile deve fazer o upload para Supabase e retornar a URL pública
+		url, err := utils.UploadFile(file, petID.String())
+		if err != nil {
+			return err
+		}
+
+		uploadedURLs = append(uploadedURLs, url)
+	}
+
+	// 📌 Atualiza as imagens do Pet
+	pet.Imagens = append(pet.Imagens, uploadedURLs...)
+
+	// 💾 SALVA NO BANCO
+	if err := db.Save(&pet).Error; err != nil {
+		return err
+	}
+
+	// 📤 RESPONSE
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Imagens adicionadas com sucesso",
+		"pet":     pet,
+	})
+
+	return nil
 }
 
 // @Summary Atualiza um Pet existente

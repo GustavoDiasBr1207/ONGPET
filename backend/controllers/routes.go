@@ -46,6 +46,7 @@ func SetupRoutes() *gin.Engine {
 		// Pet (NÃO retornam error)
 		api.GET("/pets", Handle(v0.ReadPets))
 		api.POST("/pets", RequireAuth(), Handle(v0.CreatePet))
+		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v0.UploadPetImages))
 		api.PUT("/pets/:id", RequireAuth(), Handle(v0.UpdatePet))
 		api.DELETE("/pets/:id", RequireAuth(), Handle(v0.DeletePet))
 	}
