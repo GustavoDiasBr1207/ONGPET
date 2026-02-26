@@ -3,7 +3,7 @@ package controllers
 import (
 	"net/http"
 
-	v0 "ongpet/controllers/v1"
+	v1 "ongpet/controllers/v1"
 
 	"github.com/gin-contrib/cors"
 	"github.com/gin-gonic/gin"
@@ -35,20 +35,21 @@ func SetupRoutes() *gin.Engine {
 	api := r.Group("/api/v1")
 	{
 		// Auth (NÃO retorna error)
-		api.POST("/auth/login", v0.Login)
+		api.POST("/auth/login", v1.Login)
 
 		// ONG (retornam error)
-		api.GET("/ongs", Handle(v0.ReadOngs))
-		api.POST("/ongs", RequireAuth(), Handle(v0.CreateOng))
-		api.PUT("/ongs/:id", RequireAuth(), Handle(v0.UpdateOng))
-		api.DELETE("/ongs/:id", RequireAuth(), Handle(v0.DeleteOng))
+		api.GET("/ongs", Handle(v1.ReadOngs))
+		api.POST("/ongs", RequireAuth(), Handle(v1.CreateOng))
+		api.PUT("/ongs/:id", RequireAuth(), Handle(v1.UpdateOng))
+		api.DELETE("/ongs/:id", RequireAuth(), Handle(v1.DeleteOng))
 
-		// Pet (NÃO retornam error)
-		api.GET("/pets", Handle(v0.ReadPets))
-		api.POST("/pets", RequireAuth(), Handle(v0.CreatePet))
-		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v0.UploadPetImages))
-		api.PUT("/pets/:id", RequireAuth(), Handle(v0.UpdatePet))
-		api.DELETE("/pets/:id", RequireAuth(), Handle(v0.DeletePet))
+		// Pet (retornam error)
+		api.GET("/pets", Handle(v1.ReadPets))
+		api.GET("/pets/:id", Handle(v1.ReadPet))
+		api.POST("/pets", RequireAuth(), Handle(v1.CreatePet))
+		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v1.UploadPetImages))
+		api.PUT("/pets/:id", RequireAuth(), Handle(v1.UpdatePet))
+		api.DELETE("/pets/:id", RequireAuth(), Handle(v1.DeletePet))
 	}
 
 	// 404

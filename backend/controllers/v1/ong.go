@@ -1,4 +1,4 @@
-package v0
+package v1
 
 import (
 	"errors"
@@ -34,7 +34,7 @@ type OngListResponse struct {
 // @Description Retorna todas as ONGs cadastradas
 // @Tags ONG
 // @Produce json
-// @Success 200 {object} v0.OngListResponse
+// @Success 200 {object} v1.OngListResponse
 // @Router /api/v1/ongs [get]
 func ReadOngs(c *gin.Context) error {
 	db := database.GetDB()
@@ -98,7 +98,7 @@ func ReadOngs(c *gin.Context) error {
 // @Tags ONG
 // @Accept json
 // @Produce json
-// @Param ong body v0.CreateOngInput true "Nova ONG"
+// @Param ong body v1.CreateOngInput true "Nova ONG"
 // @Success 201 {object} models.Ong
 // @Failure 400 {object} map[string]string
 // @Security ApiKeyAuth
@@ -151,7 +151,7 @@ func CreateOng(c *gin.Context) error {
 // @Accept json
 // @Produce json
 // @Param id path string true "ID da ONG"
-// @Param ong body v0.CreateOngInput true "Dados para atualização"
+// @Param ong body v1.CreateOngInput true "Dados para atualização"
 // @Success 200 {object} object{message=string,ong=models.Ong}
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string

@@ -35,7 +35,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/v0.LoginRequest"
+                            "$ref": "#/definitions/v1.LoginRequest"
                         }
                     }
                 ],
@@ -82,7 +82,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/v0.OngListResponse"
+                            "$ref": "#/definitions/v1.OngListResponse"
                         }
                     }
                 }
@@ -111,7 +111,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/v0.CreateOngInput"
+                            "$ref": "#/definitions/v1.CreateOngInput"
                         }
                     }
                 ],
@@ -166,7 +166,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/v0.CreateOngInput"
+                            "$ref": "#/definitions/v1.CreateOngInput"
                         }
                     }
                 ],
@@ -284,7 +284,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/v0.PetListResponse"
+                            "$ref": "#/definitions/v1.PetListResponse"
                         }
                     }
                 }
@@ -313,7 +313,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/v0.CreatePetInput"
+                            "$ref": "#/definitions/v1.CreatePetInput"
                         }
                     }
                 ],
@@ -337,13 +337,49 @@ const docTemplate = `{
             }
         },
         "/api/v1/pets/{id}": {
+            "get": {
+                "description": "Retorna um Pet específico pelo ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Pet"
+                ],
+                "summary": "Busca um Pet pelo ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Pet",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Pet"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "put": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Atualiza os dados de um Pet pelo ID",
+                "description": "Atualiza os dados de um Pet pelo ID (não atualiza imagens)",
                 "consumes": [
                     "application/json"
                 ],
@@ -368,7 +404,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/v0.CreatePetInput"
+                            "$ref": "#/definitions/v1.CreatePetInput"
                         }
                     }
                 ],
@@ -560,7 +596,7 @@ const docTemplate = `{
                     "description": "ARRAY PostgreSQL (text[])",
                     "type": "array",
                     "items": {
-                        "type": "string"
+                        "$ref": "#/definitions/models.PetImage"
                     }
                 },
                 "nome": {
@@ -583,7 +619,22 @@ const docTemplate = `{
                 }
             }
         },
-        "v0.CreateOngInput": {
+        "models.PetImage": {
+            "type": "object",
+            "properties": {
+                "pet_id": {
+                    "type": "string"
+                },
+                "position": {
+                    "description": "ordem no frontend",
+                    "type": "integer"
+                },
+                "url": {
+                    "type": "string"
+                }
+            }
+        },
+        "v1.CreateOngInput": {
             "type": "object",
             "properties": {
                 "email": {
@@ -608,7 +659,7 @@ const docTemplate = `{
                 }
             }
         },
-        "v0.CreatePetInput": {
+        "v1.CreatePetInput": {
             "type": "object",
             "properties": {
                 "descricao": {
@@ -618,23 +669,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "formulario_id": {
-                    "description": "opcional",
                     "type": "string"
                 },
                 "idade": {
                     "type": "integer"
                 },
-                "imagens": {
-                    "type": "array",
-                    "items": {
-                        "type": "string"
-                    }
-                },
                 "nome": {
                     "type": "string"
                 },
                 "ong_id": {
-                    "description": "obrigatório",
                     "type": "string"
                 },
                 "peso": {
@@ -651,7 +694,7 @@ const docTemplate = `{
                 }
             }
         },
-        "v0.LoginRequest": {
+        "v1.LoginRequest": {
             "type": "object",
             "properties": {
                 "email": {
@@ -662,7 +705,7 @@ const docTemplate = `{
                 }
             }
         },
-        "v0.OngListResponse": {
+        "v1.OngListResponse": {
             "type": "object",
             "properties": {
                 "dados": {
@@ -682,7 +725,7 @@ const docTemplate = `{
                 }
             }
         },
-        "v0.PetListResponse": {
+        "v1.PetListResponse": {
             "type": "object",
             "properties": {
                 "dados": {

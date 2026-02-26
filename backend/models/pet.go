@@ -2,7 +2,6 @@ package models
 
 import (
 	"github.com/google/uuid"
-	"github.com/lib/pq"
 )
 
 type Pet struct {
@@ -18,7 +17,7 @@ type Pet struct {
     Regiao    string  `gorm:"type:text" json:"regiao"`
 
     // ARRAY PostgreSQL (text[])
-    Imagens pq.StringArray `gorm:"type:text[]" json:"imagens" swaggertype:"array,string"`
+    Imagens []PetImage `gorm:"foreignKey:PetID" json:"imagens"`
 
     // OPCIONAL
     FormularioID *uuid.UUID `gorm:"type:uuid" json:"formulario_id"`

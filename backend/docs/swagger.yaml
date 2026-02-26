@@ -29,7 +29,7 @@ definitions:
       imagens:
         description: ARRAY PostgreSQL (text[])
         items:
-          type: string
+          $ref: '#/definitions/models.PetImage'
         type: array
       nome:
         type: string
@@ -44,7 +44,17 @@ definitions:
       regiao:
         type: string
     type: object
-  v0.CreateOngInput:
+  models.PetImage:
+    properties:
+      pet_id:
+        type: string
+      position:
+        description: ordem no frontend
+        type: integer
+      url:
+        type: string
+    type: object
+  v1.CreateOngInput:
     properties:
       email:
         example: a@b.com
@@ -62,25 +72,19 @@ definitions:
         example: "123"
         type: string
     type: object
-  v0.CreatePetInput:
+  v1.CreatePetInput:
     properties:
       descricao:
         type: string
       especie:
         type: string
       formulario_id:
-        description: opcional
         type: string
       idade:
         type: integer
-      imagens:
-        items:
-          type: string
-        type: array
       nome:
         type: string
       ong_id:
-        description: obrigatório
         type: string
       peso:
         type: number
@@ -91,14 +95,14 @@ definitions:
       regiao:
         type: string
     type: object
-  v0.LoginRequest:
+  v1.LoginRequest:
     properties:
       email:
         type: string
       password:
         type: string
     type: object
-  v0.OngListResponse:
+  v1.OngListResponse:
     properties:
       dados:
         items:
@@ -111,7 +115,7 @@ definitions:
       total_registros:
         type: integer
     type: object
-  v0.PetListResponse:
+  v1.PetListResponse:
     properties:
       dados:
         items:
@@ -142,7 +146,7 @@ paths:
         name: credentials
         required: true
         schema:
-          $ref: '#/definitions/v0.LoginRequest'
+          $ref: '#/definitions/v1.LoginRequest'
       produces:
       - application/json
       responses:
@@ -175,7 +179,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v0.OngListResponse'
+            $ref: '#/definitions/v1.OngListResponse'
       summary: Lista todas as ONGs
       tags:
       - ONG
@@ -189,7 +193,7 @@ paths:
         name: ong
         required: true
         schema:
-          $ref: '#/definitions/v0.CreateOngInput'
+          $ref: '#/definitions/v1.CreateOngInput'
       produces:
       - application/json
       responses:
@@ -259,7 +263,7 @@ paths:
         name: ong
         required: true
         schema:
-          $ref: '#/definitions/v0.CreateOngInput'
+          $ref: '#/definitions/v1.CreateOngInput'
       produces:
       - application/json
       responses:
@@ -304,7 +308,7 @@ paths:
         "200":
           description: OK
           schema:
-            $ref: '#/definitions/v0.PetListResponse'
+            $ref: '#/definitions/v1.PetListResponse'
       summary: Lista todos os Pets
       tags:
       - Pet
@@ -318,7 +322,7 @@ paths:
         name: pet
         required: true
         schema:
-          $ref: '#/definitions/v0.CreatePetInput'
+          $ref: '#/definitions/v1.CreatePetInput'
       produces:
       - application/json
       responses:
@@ -367,10 +371,34 @@ paths:
       summary: Remove um Pet
       tags:
       - Pet
+    get:
+      description: Retorna um Pet específico pelo ID
+      parameters:
+      - description: ID do Pet
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Pet'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Busca um Pet pelo ID
+      tags:
+      - Pet
     put:
       consumes:
       - application/json
-      description: Atualiza os dados de um Pet pelo ID
+      description: Atualiza os dados de um Pet pelo ID (não atualiza imagens)
       parameters:
       - description: ID do Pet
         in: path
@@ -382,7 +410,7 @@ paths:
         name: pet
         required: true
         schema:
-          $ref: '#/definitions/v0.CreatePetInput'
+          $ref: '#/definitions/v1.CreatePetInput'
       produces:
       - application/json
       responses:

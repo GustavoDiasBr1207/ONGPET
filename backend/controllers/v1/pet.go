@@ -1,4 +1,4 @@
-package v0
+package v1
 
 import (
 	"errors"
@@ -13,7 +13,6 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
-	"github.com/lib/pq" // 👈 FALTAVA ISSO
 	"gorm.io/gorm"
 )
 
@@ -26,9 +25,8 @@ type CreatePetInput struct {
     Peso         float64    `json:"peso"`
     Porte        string     `json:"porte"`
     Regiao       string     `json:"regiao"`
-    Imagens      []string   `json:"imagens"`
-    FormularioID *uuid.UUID `json:"formulario_id"` // opcional
-    OngID        uuid.UUID  `json:"ong_id"`        // obrigatório
+    FormularioID *uuid.UUID `json:"formulario_id"`
+    OngID        uuid.UUID  `json:"ong_id"`
 }
 
 type PetListResponse struct {
@@ -42,7 +40,7 @@ type PetListResponse struct {
 // @Description Retorna todos os pets cadastrados
 // @Tags Pet
 // @Produce json
-// @Success 200 {object} v0.PetListResponse
+// @Success 200 {object} v1.PetListResponse
 // @Router /api/v1/pets [get]
 func ReadPets(c *gin.Context) error {
 	db := database.GetDB()
@@ -93,6 +91,9 @@ func ReadPets(c *gin.Context) error {
 
 	var pets []models.Pet
 	if err := query.
+		Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("position ASC")
+		}).
 		Offset(offset).
 		Limit(limit + 1).
 		Find(&pets).Error; err != nil {
@@ -115,12 +116,44 @@ func ReadPets(c *gin.Context) error {
 	return nil
 }
 
+// @Summary Busca um Pet pelo ID
+// @Description Retorna um Pet específico pelo ID
+// @Tags Pet
+// @Produce json
+// @Param id path string true "ID do Pet"
+// @Success 200 {object} models.Pet
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/pets/{id} [get]
+func ReadPet(c *gin.Context) error {
+	db := database.GetDB()
+
+	petID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return errors.New("ID do pet inválido")
+	}
+
+	var pet models.Pet
+	if err := db.
+		Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("position ASC")
+		}).
+		First(&pet, "id = ?", petID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Pet não encontrado")
+		}
+		return err
+	}
+
+	c.JSON(http.StatusOK, pet)
+	return nil
+}
+
 // @Summary Cria um novo Pet
 // @Description Cria um Pet no sistema
 // @Tags Pet
 // @Accept json
 // @Produce json
-// @Param pet body v0.CreatePetInput true "Novo Pet"
+// @Param pet body v1.CreatePetInput true "Novo Pet"
 // @Success 201 {object} models.Pet
 // @Failure 400 {object} map[string]string
 // @Security ApiKeyAuth
@@ -146,9 +179,6 @@ func CreatePet(c *gin.Context) error {
     if req.OngID == uuid.Nil {
         return errors.New("ong_id é obrigatório")
     }
-    if len(req.Imagens) > 5 {
-        return errors.New("máximo de 5 imagens")
-    }
 
     db := database.GetDB()
 
@@ -159,18 +189,17 @@ func CreatePet(c *gin.Context) error {
         return err
     }
 
-    pet := models.Pet{
-        Nome:      req.Nome,
-        Especie:   req.Especie,
-        Raca:      req.Raca,
-        Idade:     req.Idade,
-        Descricao: req.Descricao,
-        Peso:      req.Peso,
-        Porte:     req.Porte,
-        Regiao:    req.Regiao,
-        Imagens:   pq.StringArray(req.Imagens),
-        OngID:     req.OngID,
-    }
+		pet := models.Pet{
+		Nome:      req.Nome,
+		Especie:   req.Especie,
+		Raca:      req.Raca,
+		Idade:     req.Idade,
+		Descricao: req.Descricao,
+		Peso:      req.Peso,
+		Porte:     req.Porte,
+		Regiao:    req.Regiao,
+		OngID:     req.OngID,
+	}
 
     // ✅ CORRETO: verifica se o ponteiro não é nil e se não é uuid.Nil
     if req.FormularioID != nil && *req.FormularioID != uuid.Nil {
@@ -204,13 +233,13 @@ func CreatePet(c *gin.Context) error {
 func UploadPetImages(c *gin.Context) error {
 	db := database.GetDB()
 
-	// 🔎 BUSCA PET
-	idParam := c.Param("id")
-	petID, err := uuid.Parse(idParam)
+	// 🔎 PET ID
+	petID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pet inválido")
 	}
 
+	// 🔎 BUSCA PET
 	var pet models.Pet
 	if err := db.First(&pet, "id = ?", petID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -219,7 +248,7 @@ func UploadPetImages(c *gin.Context) error {
 		return err
 	}
 
-	// 📸 MULTIPART FORM
+	// 📸 MULTIPART
 	form, err := c.MultipartForm()
 	if err != nil || form.File == nil {
 		return errors.New("nenhuma imagem enviada")
@@ -230,32 +259,53 @@ func UploadPetImages(c *gin.Context) error {
 		return errors.New("nenhuma imagem enviada")
 	}
 
-	totalAtual := len(pet.Imagens)
-	if totalAtual+len(files) > 5 {
+	// 🔢 CONTA IMAGENS ATUAIS NO BANCO
+	var totalAtual int64
+	if err := db.Model(&models.PetImage{}).
+		Where("pet_id = ?", petID).
+		Count(&totalAtual).Error; err != nil {
+		return err
+	}
+
+	if totalAtual+int64(len(files)) > 5 {
 		return errors.New("o pet pode ter no máximo 5 imagens")
 	}
 
-	// 🔁 UPLOAD SUPABASE
-	var uploadedURLs []string
-	for _, file := range files {
+	// 🔢 ÚLTIMA POSIÇÃO
+	var lastPosition int
+	if err := db.Model(&models.PetImage{}).
+		Where("pet_id = ?", petID).
+		Select("COALESCE(MAX(position), 0)").
+		Scan(&lastPosition).Error; err != nil {
+		return err
+	}
+
+	// 🔁 UPLOAD + CREATE
+	for i, file := range files {
 		if !utils.IsValidImage(file) {
 			return errors.New("tipo de imagem inválido")
 		}
 
-		// utils.UploadFile deve fazer o upload para Supabase e retornar a URL pública
 		url, err := utils.UploadFile(file, petID.String())
 		if err != nil {
 			return err
 		}
 
-		uploadedURLs = append(uploadedURLs, url)
+		image := models.PetImage{
+			URL:      url,
+			PetID:    petID,
+			Position: lastPosition + i + 1,
+		}
+
+		if err := db.Create(&image).Error; err != nil {
+			return err
+		}
 	}
 
-	// 📌 Atualiza as imagens do Pet
-	pet.Imagens = append(pet.Imagens, uploadedURLs...)
-
-	// 💾 SALVA NO BANCO
-	if err := db.Save(&pet).Error; err != nil {
+	// 🔄 RECARREGA PET COM IMAGENS ORDENADAS
+	if err := db.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
+		return tx.Order("position ASC")
+	}).First(&pet, "id = ?", petID).Error; err != nil {
 		return err
 	}
 
@@ -269,85 +319,95 @@ func UploadPetImages(c *gin.Context) error {
 }
 
 // @Summary Atualiza um Pet existente
-// @Description Atualiza os dados de um Pet pelo ID
+// @Description Atualiza os dados de um Pet pelo ID (não atualiza imagens)
 // @Tags Pet
 // @Security ApiKeyAuth
 // @Accept json
 // @Produce json
 // @Param id path string true "ID do Pet"
-// @Param pet body v0.CreatePetInput true "Dados para atualização"
+// @Param pet body v1.CreatePetInput true "Dados para atualização"
 // @Success 200 {object} object{message=string,pet=models.Pet}
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id} [put]
 func UpdatePet(c *gin.Context) error {
-    var req CreatePetInput
-    if err := c.ShouldBindJSON(&req); err != nil {
-        return err
-    }
+	var req CreatePetInput
+	if err := c.ShouldBindJSON(&req); err != nil {
+		return err
+	}
 
-    db := database.GetDB()
-    id := c.Param("id")
+	db := database.GetDB()
 
-    var pet models.Pet
-    if err := db.Where("id = ?", id).First(&pet).Error; err != nil {
-        if errors.Is(err, gorm.ErrRecordNotFound) {
-            return errors.New("Pet não encontrado")
-        }
-        return err
-    }
+	petID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return errors.New("ID do pet inválido")
+	}
 
-    // update parcial
-    if nome := strings.TrimSpace(req.Nome); nome != "" {
-        pet.Nome = nome
-    }
-    if req.Especie != "" {
-        pet.Especie = req.Especie
-    }
-    if req.Raca != "" {
-        pet.Raca = req.Raca
-    }
-    if req.Idade > 0 {
-        pet.Idade = req.Idade
-    }
-    if req.Descricao != "" {
-        pet.Descricao = req.Descricao
-    }
-    if req.Peso > 0 {
-        pet.Peso = req.Peso
-    }
-    if req.Porte != "" {
-        pet.Porte = req.Porte
-    }
-    if req.Regiao != "" {
-        pet.Regiao = req.Regiao
-    }
+	var pet models.Pet
+	if err := db.First(&pet, "id = ?", petID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Pet não encontrado")
+		}
+		return err
+	}
 
-    // permite atualizar ou limpar imagens
-    if req.Imagens != nil {
-        if len(req.Imagens) > 5 {
-            return errors.New("máximo de 5 imagens")
-        }
-        pet.Imagens = req.Imagens
-    }
+	// 🔄 UPDATE PARCIAL (somente campos enviados)
+	if nome := strings.TrimSpace(req.Nome); nome != "" {
+		pet.Nome = nome
+	}
+	if req.Especie != "" {
+		pet.Especie = req.Especie
+	}
+	if req.Raca != "" {
+		pet.Raca = req.Raca
+	}
+	if req.Idade > 0 {
+		pet.Idade = req.Idade
+	}
+	if req.Descricao != "" {
+		pet.Descricao = req.Descricao
+	}
+	if req.Peso > 0 {
+		pet.Peso = req.Peso
+	}
+	if req.Porte != "" {
+		pet.Porte = req.Porte
+	}
+	if req.Regiao != "" {
+		pet.Regiao = req.Regiao
+	}
 
-    // permite atualizar formulario_id e ong_id de forma segura
-    if req.FormularioID != nil && *req.FormularioID != uuid.Nil {
-        pet.FormularioID = req.FormularioID
-    }
-    if req.OngID != uuid.Nil {
-        pet.OngID = req.OngID
-    }
+	// 🔐 Atualiza FormularioID com segurança
+	if req.FormularioID != nil {
+		if *req.FormularioID == uuid.Nil {
+			pet.FormularioID = nil // permite limpar
+		} else {
+			pet.FormularioID = req.FormularioID
+		}
+	}
 
-    if err := db.Save(&pet).Error; err != nil {
-        return err
-    }
+	// 🔐 Atualiza ONG
+	if req.OngID != uuid.Nil {
+		pet.OngID = req.OngID
+	}
 
-    c.JSON(http.StatusOK, gin.H{
-        "message": "Pet atualizado com sucesso",
-        "pet":     pet,
-    })
+	// 💾 SALVA
+	if err := db.Save(&pet).Error; err != nil {
+		return err
+	}
 
-    return nil
+	// 🔄 Recarrega com imagens ordenadas (para o frontend)
+	if err := db.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
+		return tx.Order("position ASC")
+	}).First(&pet, "id = ?", petID).Error; err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Pet atualizado com sucesso",
+		"pet":     pet,
+	})
+
+	return nil
 }
 
 // @Summary Remove um Pet

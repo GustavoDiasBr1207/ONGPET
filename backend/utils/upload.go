@@ -39,24 +39,28 @@ func IsValidImage(file *multipart.FileHeader) bool {
 
 // UploadFile envia um arquivo para o bucket e retorna a URL pública
 func UploadFile(file *multipart.FileHeader, petID string) (string, error) {
-    src, err := file.Open()
-    if err != nil {
-        return "", err
-    }
-    defer src.Close()
+	if SupabaseClient == nil {
+		return "", fmt.Errorf("cliente Supabase não inicializado")
+	}
 
-    objectPath := fmt.Sprintf("%s/%s", petID, file.Filename)
+	src, err := file.Open()
+	if err != nil {
+		return "", err
+	}
+	defer src.Close()
 
-    // Faz upload usando nedpals/supabase-go
-    SupabaseClient.Storage.From(SupabaseBucketName).Upload(objectPath, src, &supabase.FileUploadOptions{})
+	objectPath := fmt.Sprintf("%s/%s", petID, file.Filename)
 
-    // Retorna URL pública
-    urlResp := SupabaseClient.Storage.From(SupabaseBucketName).GetPublicUrl(objectPath)
-    if urlResp.SignedUrl == "" {
-        return "", fmt.Errorf("não foi possível gerar URL pública para: %s", objectPath)
-    }
+	// Faz upload usando nedpals/supabase-go
+	SupabaseClient.Storage.From(SupabaseBucketName).Upload(objectPath, src, &supabase.FileUploadOptions{})
 
-    return urlResp.SignedUrl, nil
+	// Retorna URL pública
+	urlResp := SupabaseClient.Storage.From(SupabaseBucketName).GetPublicUrl(objectPath)
+	if urlResp.SignedUrl == "" {
+		return "", fmt.Errorf("não foi possível gerar URL pública para: %s", objectPath)
+	}
+
+	return urlResp.SignedUrl, nil
 }
 
 // UploadMultipleFiles envia múltiplos arquivos e retorna as URLs públicas
