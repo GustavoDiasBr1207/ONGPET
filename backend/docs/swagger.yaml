@@ -479,6 +479,43 @@ paths:
       summary: Adiciona imagens a um Pet existente
       tags:
       - Pet
+  /api/v1/pets/{id}/imagens/{imageId}:
+    delete:
+      description: Remove uma imagem específica de um Pet pelo ID
+      parameters:
+      - description: ID do Pet
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID da Imagem
+        in: path
+        name: imageId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              pet:
+                $ref: '#/definitions/models.Pet'
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove uma imagem de um Pet
+      tags:
+      - Pet
 securityDefinitions:
   ApiKeyAuth:
     in: header

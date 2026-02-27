@@ -1,46 +1,63 @@
-// utils/upload.go
 package utils
 
 import (
-    "fmt"
-    "log"
-    "mime/multipart"
-    "os"
-
-    "github.com/nedpals/supabase-go"
+	"bytes"
+	"fmt"
+	"io"
+	"mime/multipart"
+	"net/http"
+	"net/textproto"
+	"os"
+	"path/filepath"
+	"regexp"
+	"strings"
 )
 
-// SupabaseClient é o cliente global do Supabase
-var SupabaseClient *supabase.Client
-var SupabaseBucketName string
+var (
+	SupabaseURL    string
+	SupabaseKey    string
+	SupabaseBucket string
+)
 
-// InitSupabase inicializa o cliente do Supabase
+/*
+	InitSupabase inicializa variáveis do Supabase Storage (REST API)
+	⚠️ Use SEMPRE a SERVICE_ROLE_KEY no backend
+*/
 func InitSupabase() {
-    url := os.Getenv("SUPABASE_URL")
-    key := os.Getenv("SUPABASE_KEY")
-    SupabaseBucketName = os.Getenv("SUPABASE_BUCKET") // exemplo: "pets"
+	SupabaseURL = strings.TrimSpace(os.Getenv("SUPABASE_URL"))
+	SupabaseKey = strings.TrimSpace(os.Getenv("SUPABASE_SERVICE_ROLE_KEY"))
+	SupabaseBucket = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET"))
 
-    if url == "" || key == "" || SupabaseBucketName == "" {
-        log.Fatal("Variáveis SUPABASE_URL, SUPABASE_KEY e SUPABASE_BUCKET devem estar setadas")
-    }
+	if SupabaseURL == "" || SupabaseKey == "" || SupabaseBucket == "" {
+		panic("❌ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e SUPABASE_BUCKET são obrigatórios")
+	}
 
-    SupabaseClient = supabase.CreateClient(url, key)
+	fmt.Println("✅ Supabase Storage (REST) inicializado com sucesso")
 }
 
-// IsValidImage verifica se o arquivo é uma imagem válida (jpg, jpeg, png, gif)
+// IsValidImage valida tipos de imagem permitidos
 func IsValidImage(file *multipart.FileHeader) bool {
-    switch file.Header.Get("Content-Type") {
-    case "image/jpeg", "image/png", "image/gif":
-        return true
-    default:
-        return false
-    }
+	switch file.Header.Get("Content-Type") {
+	case "image/jpeg", "image/png", "image/gif", "image/webp":
+		return true
+	default:
+		return false
+	}
 }
 
-// UploadFile envia um arquivo para o bucket e retorna a URL pública
-func UploadFile(file *multipart.FileHeader, petID string) (string, error) {
-	if SupabaseClient == nil {
-		return "", fmt.Errorf("cliente Supabase não inicializado")
+/*
+	UploadFile envia arquivo para o Supabase Storage
+	Path final: <petID>/<slug-pet>-<posição>.<extensão>
+*/
+func UploadFile(
+	file *multipart.FileHeader,
+	petID string,
+	petName string,
+	position int,
+) (string, error) {
+
+	if !IsValidImage(file) {
+		return "", fmt.Errorf("tipo de imagem não suportado: %s", file.Header.Get("Content-Type"))
 	}
 
 	src, err := file.Open()
@@ -49,41 +66,122 @@ func UploadFile(file *multipart.FileHeader, petID string) (string, error) {
 	}
 	defer src.Close()
 
-	objectPath := fmt.Sprintf("%s/%s", petID, file.Filename)
+	ext := filepath.Ext(file.Filename)
+	objectPath := fmt.Sprintf(
+		"%s/%s-%d%s",
+		petID,
+		slugify(petName),
+		position,
+		ext,
+	)
 
-	// Faz upload usando nedpals/supabase-go
-	SupabaseClient.Storage.From(SupabaseBucketName).Upload(objectPath, src, &supabase.FileUploadOptions{})
+	// 🔹 Monta multipart body manualmente (com MIME correto)
+	body := &bytes.Buffer{}
+	writer := multipart.NewWriter(body)
 
-	// Retorna URL pública
-	urlResp := SupabaseClient.Storage.From(SupabaseBucketName).GetPublicUrl(objectPath)
-	if urlResp.SignedUrl == "" {
-		return "", fmt.Errorf("não foi possível gerar URL pública para: %s", objectPath)
+	header := make(textproto.MIMEHeader)
+	header.Set(
+		"Content-Disposition",
+		fmt.Sprintf(`form-data; name="file"; filename="%s"`, file.Filename),
+	)
+	header.Set("Content-Type", file.Header.Get("Content-Type"))
+
+	part, err := writer.CreatePart(header)
+	if err != nil {
+		return "", err
 	}
 
-	return urlResp.SignedUrl, nil
+	if _, err = io.Copy(part, src); err != nil {
+		return "", err
+	}
+
+	if err = writer.Close(); err != nil {
+		return "", err
+	}
+
+	uploadURL := fmt.Sprintf(
+		"%s/storage/v1/object/%s/%s",
+		SupabaseURL,
+		SupabaseBucket,
+		objectPath,
+	)
+
+	req, err := http.NewRequest(http.MethodPost, uploadURL, body)
+	if err != nil {
+		return "", err
+	}
+
+	// 🔥 HEADERS OBRIGATÓRIOS DO SUPABASE
+	req.Header.Set("Authorization", "Bearer "+SupabaseKey)
+	req.Header.Set("apikey", SupabaseKey)
+	req.Header.Set("Content-Type", writer.FormDataContentType())
+	req.Header.Set("x-upsert", "false")
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return "", err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf(
+			"❌ upload falhou (%d): %s",
+			resp.StatusCode,
+			string(respBody),
+		)
+	}
+
+	publicURL := fmt.Sprintf(
+		"%s/storage/v1/object/public/%s/%s",
+		SupabaseURL,
+		SupabaseBucket,
+		objectPath,
+	)
+
+	return publicURL, nil
 }
 
-// UploadMultipleFiles envia múltiplos arquivos e retorna as URLs públicas
-func UploadMultipleFiles(files []*multipart.FileHeader, petID string) ([]string, error) {
-    var urls []string
-    for _, file := range files {
-        url, err := UploadFile(file, petID)
-        if err != nil {
-            return nil, err
-        }
-        urls = append(urls, url)
-    }
-    return urls, nil
-}
-
-// DeleteFile remove um arquivo do bucket
+// DeleteFile remove arquivo do bucket
 func DeleteFile(objectPath string) error {
-    SupabaseClient.Storage.From(SupabaseBucketName).Remove([]string{objectPath})
-    return nil
+	deleteURL := fmt.Sprintf(
+		"%s/storage/v1/object/%s/%s",
+		SupabaseURL,
+		SupabaseBucket,
+		objectPath,
+	)
+
+	req, err := http.NewRequest(http.MethodDelete, deleteURL, nil)
+	if err != nil {
+		return err
+	}
+
+	req.Header.Set("Authorization", "Bearer "+SupabaseKey)
+	req.Header.Set("apikey", SupabaseKey)
+
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 300 {
+		respBody, _ := io.ReadAll(resp.Body)
+		return fmt.Errorf(
+			"❌ delete falhou (%d): %s",
+			resp.StatusCode,
+			string(respBody),
+		)
+	}
+
+	return nil
 }
 
-// DeleteFiles remove múltiplos arquivos do bucket
-func DeleteFiles(objectPaths []string) error {
-    SupabaseClient.Storage.From(SupabaseBucketName).Remove(objectPaths)
-    return nil
+// slugify transforma texto em slug seguro
+func slugify(input string) string {
+	s := strings.ToLower(strings.TrimSpace(input))
+	s = strings.ReplaceAll(s, " ", "-")
+
+	reg := regexp.MustCompile(`[^a-z0-9\-]`)
+	return reg.ReplaceAllString(s, "")
 }

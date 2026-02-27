@@ -27,7 +27,10 @@ func main() {
 		log.Println("⚠️ .env não encontrado, usando variáveis do sistema")
 	}
 
-		db := database.Connect(os.Getenv("DATABASE_URL"))
+	// 🔍 Debug: imprime as variáveis de ambiente
+	debugEnv()
+
+	db := database.Connect(os.Getenv("DATABASE_URL"))
 	utils.InitSupabase()
 		err := db.AutoMigrate(
 		// base

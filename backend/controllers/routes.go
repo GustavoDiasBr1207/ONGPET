@@ -46,6 +46,8 @@ func SetupRoutes() *gin.Engine {
 		// Pet (retornam error)
 		api.GET("/pets", Handle(v1.ReadPets))
 		api.GET("/pets/:id", Handle(v1.ReadPet))
+		// imagem: coloca antes da rota /pets/:id para evitar conflito de wildcard
+		api.DELETE("/pets/:id/imagens/:imageId", RequireAuth(), Handle(v1.DeletePetImage))
 		api.POST("/pets", RequireAuth(), Handle(v1.CreatePet))
 		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v1.UploadPetImages))
 		api.PUT("/pets/:id", RequireAuth(), Handle(v1.UpdatePet))

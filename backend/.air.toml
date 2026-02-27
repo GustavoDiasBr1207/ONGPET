@@ -2,7 +2,7 @@ root = "."
 tmp_dir = "tmp"
 
 [build]
-cmd = "swag init -g main.go && go build -o ./tmp/main ."
+cmd = "export $(grep -v '^#' .env | xargs) && swag init -g main.go && go build -o ./tmp/main ."
 bin = "tmp/main"
 full_bin = "tmp/main"
 

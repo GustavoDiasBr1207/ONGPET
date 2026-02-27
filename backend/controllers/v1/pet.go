@@ -259,7 +259,7 @@ func UploadPetImages(c *gin.Context) error {
 		return errors.New("nenhuma imagem enviada")
 	}
 
-	// 🔢 CONTA IMAGENS ATUAIS NO BANCO
+	// 🔢 CONTA IMAGENS ATUAIS
 	var totalAtual int64
 	if err := db.Model(&models.PetImage{}).
 		Where("pet_id = ?", petID).
@@ -286,7 +286,14 @@ func UploadPetImages(c *gin.Context) error {
 			return errors.New("tipo de imagem inválido")
 		}
 
-		url, err := utils.UploadFile(file, petID.String())
+		position := lastPosition + i + 1
+
+		url, err := utils.UploadFile(
+			file,
+			petID.String(),
+			pet.Nome,
+			position,
+		)
 		if err != nil {
 			return err
 		}
@@ -294,7 +301,7 @@ func UploadPetImages(c *gin.Context) error {
 		image := models.PetImage{
 			URL:      url,
 			PetID:    petID,
-			Position: lastPosition + i + 1,
+			Position: position,
 		}
 
 		if err := db.Create(&image).Error; err != nil {
@@ -439,6 +446,70 @@ func DeletePet(c *gin.Context) error {
 
 	c.JSON(http.StatusOK, gin.H{
 		"message": "Pet removido com sucesso",
+	})
+
+	return nil
+}
+
+// @Summary Remove uma imagem de um Pet
+// @Description Remove uma imagem específica de um Pet pelo ID
+// @Tags Pet
+// @Security ApiKeyAuth
+// @Produce json
+// @Param id path string true "ID do Pet"
+// @Param imageId path string true "ID da Imagem"
+// @Success 200 {object} object{message=string,pet=models.Pet}
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/pets/{id}/imagens/{imageId} [delete]
+func DeletePetImage(c *gin.Context) error {
+	db := database.GetDB()
+
+	// 🔎 VALIDA IDs
+	petID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return errors.New("ID do pet inválido")
+	}
+
+	imageID, err := uuid.Parse(c.Param("imageId"))
+	if err != nil {
+		return errors.New("ID da imagem inválido")
+	}
+
+	// 🔍 BUSCA IMAGEM NO BANCO
+	var image models.PetImage
+	if err := db.First(&image, "id = ? AND pet_id = ?", imageID, petID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Imagem não encontrada")
+		}
+		return err
+	}
+
+	// 🗑️ DELETA DO SUPABASE (usando estrutura: petID/nome-posicao.ext)
+	if err := utils.DeleteFile(image.URL); err != nil {
+		// Log do erro mas continua (arquivo pode já estar deletado)
+		c.JSON(http.StatusOK, gin.H{
+			"message": "Imagem removida do banco (arquivo não encontrado no storage)",
+			"warning": err.Error(),
+		})
+		// Continua deletando do banco mesmo se Supabase falhar
+	}
+
+	// 💾 DELETA DO BANCO
+	if err := db.Delete(&image).Error; err != nil {
+		return err
+	}
+
+	// 🔄 RETORNA PET ATUALIZADO COM IMAGENS ORDENADAS
+	var pet models.Pet
+	if err := db.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
+		return tx.Order("position ASC")
+	}).First(&pet, "id = ?", petID).Error; err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Imagem removida com sucesso",
+		"pet":     pet,
 	})
 
 	return nil
