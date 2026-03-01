@@ -28,6 +28,7 @@ type CreatePetInput struct {
     Regiao       string     `json:"regiao"`
     FormularioID *uuid.UUID `json:"formulario_id"`
     OngID        uuid.UUID  `json:"ong_id"`
+	Status       models.PetStatus     `json:"status"`
 }
 
 type PetListResponse struct {
@@ -191,6 +192,7 @@ func CreatePet(c *gin.Context) error {
 		Porte:     req.Porte,
 		Regiao:    req.Regiao,
 		OngID:     req.OngID,
+		Status:    models.PetDraft,
 	}
 
     // ✅ CORRETO: verifica se o ponteiro não é nil e se não é uuid.Nil
@@ -388,6 +390,9 @@ func UpdatePet(c *gin.Context) error {
 	}
 	if req.Regiao != "" {
 		pet.Regiao = req.Regiao
+	}
+	if req.Status != "" {
+		pet.Status = models.PetStatus(req.Status)
 	}
 
 	// 🔐 Atualiza FormularioID com segurança

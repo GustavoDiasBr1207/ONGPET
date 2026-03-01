@@ -22,12 +22,10 @@ definitions:
       especie:
         type: string
       formulario_id:
-        description: OPCIONAL
         type: string
       idade:
         type: integer
       imagens:
-        description: ARRAY PostgreSQL (text[])
         items:
           $ref: '#/definitions/models.PetImage'
         type: array
@@ -43,6 +41,8 @@ definitions:
         type: string
       regiao:
         type: string
+      status:
+        $ref: '#/definitions/models.PetStatus'
     type: object
   models.PetImage:
     properties:
@@ -54,6 +54,16 @@ definitions:
       url:
         type: string
     type: object
+  models.PetStatus:
+    enum:
+    - adopted
+    - available
+    - draft
+    type: string
+    x-enum-varnames:
+    - PetAdopted
+    - PetAvailable
+    - PetDraft
   v1.CreateOngInput:
     properties:
       email:
@@ -94,6 +104,8 @@ definitions:
         type: string
       regiao:
         type: string
+      status:
+        $ref: '#/definitions/models.PetStatus'
     type: object
   v1.LoginRequest:
     properties:
