@@ -644,14 +644,12 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "formulario_id": {
-                    "description": "OPCIONAL",
                     "type": "string"
                 },
                 "idade": {
                     "type": "integer"
                 },
                 "imagens": {
-                    "description": "ARRAY PostgreSQL (text[])",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.PetImage"
@@ -674,6 +672,9 @@ const docTemplate = `{
                 },
                 "regiao": {
                     "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.PetStatus"
                 }
             }
         },
@@ -691,6 +692,19 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "models.PetStatus": {
+            "type": "string",
+            "enum": [
+                "adopted",
+                "available",
+                "draft"
+            ],
+            "x-enum-varnames": [
+                "PetAdopted",
+                "PetAvailable",
+                "PetDraft"
+            ]
         },
         "v1.CreateOngInput": {
             "type": "object",
@@ -749,6 +763,9 @@ const docTemplate = `{
                 },
                 "regiao": {
                     "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.PetStatus"
                 }
             }
         },
