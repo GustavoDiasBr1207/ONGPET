@@ -272,16 +272,30 @@ func UploadPetImages(c *gin.Context) error {
 		return err
 	}
 
-	// 🔁 UPLOAD + CREATE
+	// 🔁 UPLOAD + CREATE (COM RESIZE + COMPRESS)
 	for i, file := range files {
+
 		if !utils.IsValidImage(file) {
 			return errors.New("tipo de imagem inválido")
 		}
 
 		position := lastPosition + i + 1
 
-		url, err := utils.UploadFile(
+		// 🖼️ OTIMIZA IMAGEM
+		optimized, err := utils.ResizeAndCompressImage(
 			file,
+			1280, // largura máxima
+			70,   // qualidade JPEG
+		)
+		if err != nil {
+			return err
+		}
+
+		// ☁️ UPLOAD OTIMIZADO
+		url, err := utils.UploadOptimizedFile(
+			optimized.Buffer,
+			optimized.ContentType,
+			optimized.Extension,
 			petID.String(),
 			pet.Nome,
 			position,
@@ -290,6 +304,7 @@ func UploadPetImages(c *gin.Context) error {
 			return err
 		}
 
+		// 💾 SALVA NO BANCO
 		image := models.PetImage{
 			URL:      url,
 			PetID:    petID,
