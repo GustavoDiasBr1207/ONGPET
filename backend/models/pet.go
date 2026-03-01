@@ -7,12 +7,12 @@ import (
 type Pet struct {
     BaseModel `swaggerignore:"true"`
 
-    Nome      string  `gorm:"type:text;not null" json:"nome"`
+    Nome      string  `gorm:"type:text" json:"nome"`
     Especie   string  `gorm:"type:text" json:"especie"`
     Raca      string  `gorm:"type:text" json:"raca"`
-    Idade     int     `gorm:"not null" json:"idade"`
+    Idade     int     `gorm:"default:0" json:"idade"`
     Descricao string  `gorm:"type:text" json:"descricao"`
-    Peso      float64 `gorm:"not null" json:"peso"`
+    Peso      float64 `gorm:"default:0.0" json:"peso"`
     Porte     string  `gorm:"type:text" json:"porte"`
     Regiao    string  `gorm:"type:text" json:"regiao"`
 
