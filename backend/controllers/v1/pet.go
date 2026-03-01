@@ -168,9 +168,6 @@ func CreatePet(c *gin.Context) error {
 
     req.Nome = strings.TrimSpace(req.Nome)
 
-    if req.Nome == "" {
-        return errors.New("nome é obrigatório")
-    }
     if req.Idade <= 0 {
         return errors.New("idade inválida")
     }
