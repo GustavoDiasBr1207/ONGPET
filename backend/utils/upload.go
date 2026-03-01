@@ -7,6 +7,7 @@ import (
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
+	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -142,39 +143,44 @@ func UploadFile(
 	return publicURL, nil
 }
 
-// DeleteFile remove arquivo do bucket
 func DeleteFile(objectPath string) error {
-	deleteURL := fmt.Sprintf(
-		"%s/storage/v1/object/%s/%s",
-		SupabaseURL,
-		SupabaseBucket,
-		objectPath,
-	)
+    deleteURL := fmt.Sprintf(
+        "%s/storage/v1/object/%s",
+        SupabaseURL,
+        SupabaseBucket,
+    )
 
-	req, err := http.NewRequest(http.MethodDelete, deleteURL, nil)
-	if err != nil {
-		return err
-	}
+    // Supabase exige body JSON com array de prefixes
+    bodyBytes, err := json.Marshal(map[string][]string{
+        "prefixes": {objectPath},
+    })
+    if err != nil {
+        return err
+    }
 
-	req.Header.Set("Authorization", "Bearer "+SupabaseKey)
-	req.Header.Set("apikey", SupabaseKey)
+    req, err := http.NewRequest(http.MethodDelete, deleteURL, bytes.NewReader(bodyBytes))
+    if err != nil {
+        return err
+    }
 
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
+    req.Header.Set("Authorization", "Bearer "+SupabaseKey)
+    req.Header.Set("apikey", SupabaseKey)
+    req.Header.Set("Content-Type", "application/json")
 
-	if resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf(
-			"❌ delete falhou (%d): %s",
-			resp.StatusCode,
-			string(respBody),
-		)
-	}
+    resp, err := http.DefaultClient.Do(req)
+    if err != nil {
+        return err
+    }
+    defer resp.Body.Close()
 
-	return nil
+    respBody, _ := io.ReadAll(resp.Body)
+
+    if resp.StatusCode >= 300 {
+        return fmt.Errorf("❌ delete falhou (%d): %s", resp.StatusCode, string(respBody))
+    }
+
+    fmt.Printf("✅ Arquivo deletado do Supabase: %s | resposta: %s\n", objectPath, string(respBody))
+    return nil
 }
 
 // slugify transforma texto em slug seguro
@@ -184,4 +190,14 @@ func slugify(input string) string {
 
 	reg := regexp.MustCompile(`[^a-z0-9\-]`)
 	return reg.ReplaceAllString(s, "")
+}
+
+// ExtractObjectPath extrai o caminho relativo do objeto a partir da URL pública
+func ExtractObjectPath(publicURL string) (string, error) {
+	marker := fmt.Sprintf("/storage/v1/object/public/%s/", SupabaseBucket)
+	idx := strings.Index(publicURL, marker)
+	if idx == -1 {
+		return "", fmt.Errorf("URL inválida, não foi possível extrair o caminho: %s", publicURL)
+	}
+	return publicURL[idx+len(marker):], nil
 }
