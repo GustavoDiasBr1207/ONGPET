@@ -12,7 +12,7 @@ type Pet struct {
     Raca      string  `gorm:"type:text" json:"raca"`
     Idade     int     `gorm:"default:0" json:"idade"`
     Descricao string  `gorm:"type:text" json:"descricao"`
-    Peso      float64 `gorm:"not null" json:"peso"`
+    Peso      float64 `gorm:"default:0.0" json:"peso"`
     Porte     string  `gorm:"type:text" json:"porte"`
     Regiao    string  `gorm:"type:text" json:"regiao"`
 
