@@ -10,6 +10,7 @@ import (
 	"ongpet/database"
 	"ongpet/models"
     "ongpet/utils"
+	"fmt"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -484,14 +485,15 @@ func DeletePetImage(c *gin.Context) error {
 		return err
 	}
 
-	// 🗑️ DELETA DO SUPABASE (usando estrutura: petID/nome-posicao.ext)
-	if err := utils.DeleteFile(image.URL); err != nil {
-		// Log do erro mas continua (arquivo pode já estar deletado)
-		c.JSON(http.StatusOK, gin.H{
-			"message": "Imagem removida do banco (arquivo não encontrado no storage)",
-			"warning": err.Error(),
-		})
-		// Continua deletando do banco mesmo se Supabase falhar
+	// 🗑️ EXTRAI PATH RELATIVO E DELETA DO SUPABASE
+	objectPath, pathErr := utils.ExtractObjectPath(image.URL)
+	if pathErr == nil {
+		if err := utils.DeleteFile(objectPath); err != nil {
+			// Loga o erro mas continua (arquivo pode já estar deletado)
+			fmt.Printf("⚠️ Aviso: não foi possível deletar arquivo do storage: %s\n", err.Error())
+		}
+	} else {
+		fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
 	}
 
 	// 💾 DELETA DO BANCO
