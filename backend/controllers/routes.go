@@ -52,6 +52,20 @@ func SetupRoutes() *gin.Engine {
 		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v1.UploadPetImages))
 		api.PUT("/pets/:id", RequireAuth(), Handle(v1.UpdatePet))
 		api.DELETE("/pets/:id", RequireAuth(), Handle(v1.DeletePet))
+
+		// Formulário (retornam error)
+		api.GET("/formularios", Handle(v1.ReadFormularios))
+		api.GET("/formularios/:id", Handle(v1.ReadFormulario))
+		api.POST("/formularios", RequireAuth(), Handle(v1.CreateFormulario))
+		api.PUT("/formularios/:id", RequireAuth(), Handle(v1.UpdateFormulario))
+		api.DELETE("/formularios/:id", RequireAuth(), Handle(v1.DeleteFormulario))
+
+		// Pedidos de adoção (retornam error)
+		api.GET("/pedidos-adoção", RequireAuth(), Handle(v1.ReadPedidosAdocao))
+		api.GET("/pedidos-adoção/:id", RequireAuth(), Handle(v1.ReadPedidoAdocao))
+		api.POST("/pedidos-adoção", Handle(v1.CreatePedidoAdocao)) // qualquer pessoa pode criar um pedido
+		api.PUT("/pedidos-adoção/:id/status", RequireAuth(), Handle(v1.UpdateStatusPedidoAdocao)) // só atualiza o status, não as respostas
+		api.DELETE("/pedidos-adoção/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
 	}
 
 	// 404

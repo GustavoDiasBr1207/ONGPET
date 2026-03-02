@@ -1,5 +1,79 @@
 basePath: /
 definitions:
+  models.CampoConfiguracao:
+    properties:
+      descricao:
+        description: texto de ajuda abaixo do campo
+        type: string
+      label:
+        description: Apresentação
+        type: string
+      max:
+        description: max de caracteres (texto) ou valor (numero)
+        type: integer
+      max_valor:
+        description: para tipo numero
+        type: number
+      min:
+        description: min de caracteres (texto) ou valor (numero)
+        type: integer
+      min_valor:
+        description: para tipo numero
+        type: number
+      obrigatorio:
+        description: Validações
+        type: boolean
+      opcoes:
+        description: Opções (apenas para select, radio, checkbox)
+        items:
+          type: string
+        type: array
+      placeholder:
+        description: 'ex: "Digite seu nome"'
+        type: string
+      regex:
+        type: string
+      tipo:
+        allOf:
+        - $ref: '#/definitions/models.TipoCampo'
+        description: Tipo
+    type: object
+  models.CampoFormulario:
+    properties:
+      configuracao:
+        description: CampoConfiguracao serializado
+        type: string
+      formulario_modelo_id:
+        type: string
+      nome:
+        description: nome técnico/interno
+        type: string
+      ordem:
+        description: ordem de exibição
+        type: integer
+    type: object
+  models.CampoFormularioDTO:
+    properties:
+      configuracao:
+        $ref: '#/definitions/models.CampoConfiguracao'
+      id:
+        type: string
+      nome:
+        type: string
+      ordem:
+        type: integer
+    type: object
+  models.FormularioModelo:
+    properties:
+      campos:
+        items:
+          $ref: '#/definitions/models.CampoFormulario'
+        type: array
+      nome:
+        type: string
+      ong_id:
+        type: string
+    type: object
   models.Ong:
     properties:
       email:
@@ -15,6 +89,29 @@ definitions:
       user_id:
         type: string
     type: object
+  models.PedidoAdocaoDTO:
+    properties:
+      id:
+        type: string
+      ong_id:
+        type: string
+      respostas:
+        items:
+          $ref: '#/definitions/models.RespostaFormularioDTO'
+        type: array
+    type: object
+  models.PedidoAdocaoStatus:
+    enum:
+    - pendente
+    - aprovado
+    - rejeitado
+    - cancelado
+    type: string
+    x-enum-varnames:
+    - PedidoAdocaoPendente
+    - PedidoAdocaoAprovado
+    - PedidoAdocaoRejeitado
+    - PedidoAdocaoCancelado
   models.Pet:
     properties:
       descricao:
@@ -64,6 +161,57 @@ definitions:
     - PetAdopted
     - PetAvailable
     - PetDraft
+  models.RespostaFormularioDTO:
+    properties:
+      campo:
+        $ref: '#/definitions/models.CampoFormularioDTO'
+      id:
+        type: string
+      valor:
+        type: string
+    type: object
+  models.TipoCampo:
+    enum:
+    - texto
+    - numero
+    - select
+    - radio
+    - checkbox
+    - textarea
+    - email
+    - telefone
+    - data
+    type: string
+    x-enum-varnames:
+    - TipoCampoTexto
+    - TipoCampoNumero
+    - TipoCampoSelect
+    - TipoCampoRadio
+    - TipoCampoCheckbox
+    - TipoCampoTextarea
+    - TipoCampoEmail
+    - TipoCampoTelefone
+    - TipoCampoData
+  v1.CreateCampoInput:
+    properties:
+      configuracao:
+        $ref: '#/definitions/models.CampoConfiguracao'
+      nome:
+        type: string
+      ordem:
+        type: integer
+    type: object
+  v1.CreateFormularioModeloInput:
+    properties:
+      campos:
+        items:
+          $ref: '#/definitions/v1.CreateCampoInput'
+        type: array
+      nome:
+        type: string
+      ong_id:
+        type: string
+    type: object
   v1.CreateOngInput:
     properties:
       email:
@@ -81,6 +229,17 @@ definitions:
       telefone:
         example: "123"
         type: string
+    type: object
+  v1.CreatePedidoAdocaoInput:
+    properties:
+      ong_id:
+        type: string
+      pet_id:
+        type: string
+      respostas:
+        items:
+          $ref: '#/definitions/v1.CreateRespostaInput'
+        type: array
     type: object
   v1.CreatePetInput:
     properties:
@@ -106,6 +265,13 @@ definitions:
         type: string
       status:
         $ref: '#/definitions/models.PetStatus'
+    type: object
+  v1.CreateRespostaInput:
+    properties:
+      campo_formulario_id:
+        type: string
+      valor:
+        type: string
     type: object
   v1.LoginRequest:
     properties:
@@ -139,6 +305,16 @@ definitions:
         type: integer
       total_registros:
         type: integer
+    type: object
+  v1.UpdateFormularioModeloInput:
+    properties:
+      nome:
+        type: string
+    type: object
+  v1.UpdateStatusPedidoAdocaoInput:
+    properties:
+      status:
+        $ref: '#/definitions/models.PedidoAdocaoStatus'
     type: object
 host: localhost:8080
 info:
@@ -182,6 +358,211 @@ paths:
       summary: Login
       tags:
       - Auth
+  /api/v1/formularios:
+    get:
+      parameters:
+      - description: Filtrar por ONG
+        in: query
+        name: ong_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.FormularioModelo'
+            type: array
+      summary: Lista todos os Formulários Modelo
+      tags:
+      - FormularioModelo
+    post:
+      consumes:
+      - application/json
+      description: Cria um formulário com campos configuráveis para uso na adoção
+        de pets
+      parameters:
+      - description: Novo Formulário
+        in: body
+        name: formulario
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateFormularioModeloInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.FormularioModelo'
+      security:
+      - ApiKeyAuth: []
+      summary: Cria um novo Formulário Modelo
+      tags:
+      - FormularioModelo
+  /api/v1/formularios/{id}:
+    delete:
+      description: Remove o formulário e todos os campos em cascata
+      parameters:
+      - description: ID do Formulário
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove um Formulário Modelo
+      tags:
+      - FormularioModelo
+    get:
+      parameters:
+      - description: ID do Formulário
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.FormularioModelo'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Busca um Formulário Modelo pelo ID
+      tags:
+      - FormularioModelo
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do Formulário
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Dados para atualização
+        in: body
+        name: formulario
+        required: true
+        schema:
+          $ref: '#/definitions/v1.UpdateFormularioModeloInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.FormularioModelo'
+      security:
+      - ApiKeyAuth: []
+      summary: Atualiza o nome de um Formulário Modelo
+      tags:
+      - FormularioModelo
+  /api/v1/formularios/{id}/campos:
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do Formulário
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Novo Campo
+        in: body
+        name: campo
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateCampoInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.CampoFormulario'
+      security:
+      - ApiKeyAuth: []
+      summary: Adiciona um Campo ao Formulário
+      tags:
+      - FormularioModelo
+  /api/v1/formularios/{id}/campos/{campoId}:
+    delete:
+      parameters:
+      - description: ID do Formulário
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID do Campo
+        in: path
+        name: campoId
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove um Campo do Formulário
+      tags:
+      - FormularioModelo
+    put:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do Formulário
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: ID do Campo
+        in: path
+        name: campoId
+        required: true
+        type: string
+      - description: Dados para atualização
+        in: body
+        name: campo
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateCampoInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.CampoFormulario'
+      security:
+      - ApiKeyAuth: []
+      summary: Atualiza um Campo do Formulário
+      tags:
+      - FormularioModelo
   /api/v1/ongs:
     get:
       description: Retorna todas as ONGs cadastradas
@@ -311,6 +692,152 @@ paths:
       summary: Atualiza uma ONG existente
       tags:
       - ONG
+  /api/v1/pedidos-adocao:
+    get:
+      parameters:
+      - description: Filtrar por ONG
+        in: query
+        name: ong_id
+        type: string
+      - description: Filtrar por Pet
+        in: query
+        name: pet_id
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Lista todos os Pedidos de Adoção
+      tags:
+      - PedidoAdocao
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Cria o pedido com as respostas ao formulário vinculado ao Pet.
+        As respostas são validadas contra a configuração de cada campo.
+      parameters:
+      - description: Novo Pedido
+        in: body
+        name: pedido
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreatePedidoAdocaoInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.PedidoAdocaoDTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Cria um novo Pedido de Adoção
+      tags:
+      - PedidoAdocao
+  /api/v1/pedidos-adocao/{id}:
+    delete:
+      parameters:
+      - description: ID do Pedido
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove um Pedido de Adoção
+      tags:
+      - PedidoAdocao
+    get:
+      parameters:
+      - description: ID do Pedido
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PedidoAdocaoDTO'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Busca um Pedido de Adoção pelo ID
+      tags:
+      - PedidoAdocao
+  /api/v1/pedidos-adocao/{id}/status:
+    put:
+      consumes:
+      - application/json
+      description: 'Status válidos: pendente, aprovado, rejeitado, cancelado'
+      parameters:
+      - description: ID do Pedido
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Novo status
+        in: body
+        name: status
+        required: true
+        schema:
+          $ref: '#/definitions/v1.UpdateStatusPedidoAdocaoInput'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.PedidoAdocaoDTO'
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Atualiza o status de um Pedido de Adoção
+      tags:
+      - PedidoAdocao
   /api/v1/pets:
     get:
       description: Retorna todos os pets cadastrados

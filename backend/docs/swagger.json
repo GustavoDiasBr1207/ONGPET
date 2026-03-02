@@ -62,6 +62,330 @@
                 }
             }
         },
+        "/api/v1/formularios": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Lista todos os Formulários Modelo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filtrar por ONG",
+                        "name": "ong_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.FormularioModelo"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Cria um formulário com campos configuráveis para uso na adoção de pets",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Cria um novo Formulário Modelo",
+                "parameters": [
+                    {
+                        "description": "Novo Formulário",
+                        "name": "formulario",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateFormularioModeloInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.FormularioModelo"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/formularios/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Busca um Formulário Modelo pelo ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.FormularioModelo"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Atualiza o nome de um Formulário Modelo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Dados para atualização",
+                        "name": "formulario",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.UpdateFormularioModeloInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.FormularioModelo"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove o formulário e todos os campos em cascata",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Remove um Formulário Modelo",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/formularios/{id}/campos": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Adiciona um Campo ao Formulário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Novo Campo",
+                        "name": "campo",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateCampoInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.CampoFormulario"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/formularios/{id}/campos/{campoId}": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Atualiza um Campo do Formulário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID do Campo",
+                        "name": "campoId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Dados para atualização",
+                        "name": "campo",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateCampoInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.CampoFormulario"
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Remove um Campo do Formulário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID do Campo",
+                        "name": "campoId",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ongs": {
             "get": {
                 "description": "Retorna todas as ONGs cadastradas",
@@ -254,6 +578,232 @@
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pedidos-adocao": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PedidoAdocao"
+                ],
+                "summary": "Lista todos os Pedidos de Adoção",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filtrar por ONG",
+                        "name": "ong_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtrar por Pet",
+                        "name": "pet_id",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Cria o pedido com as respostas ao formulário vinculado ao Pet.\nAs respostas são validadas contra a configuração de cada campo.",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PedidoAdocao"
+                ],
+                "summary": "Cria um novo Pedido de Adoção",
+                "parameters": [
+                    {
+                        "description": "Novo Pedido",
+                        "name": "pedido",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreatePedidoAdocaoInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.PedidoAdocaoDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pedidos-adocao/{id}": {
+            "get": {
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PedidoAdocao"
+                ],
+                "summary": "Busca um Pedido de Adoção pelo ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Pedido",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PedidoAdocaoDTO"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PedidoAdocao"
+                ],
+                "summary": "Remove um Pedido de Adoção",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Pedido",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pedidos-adocao/{id}/status": {
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Status válidos: pendente, aprovado, rejeitado, cancelado",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PedidoAdocao"
+                ],
+                "summary": "Atualiza o status de um Pedido de Adoção",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Pedido",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Novo status",
+                        "name": "status",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.UpdateStatusPedidoAdocaoInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.PedidoAdocaoDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -605,6 +1155,115 @@
         }
     },
     "definitions": {
+        "models.CampoConfiguracao": {
+            "type": "object",
+            "properties": {
+                "descricao": {
+                    "description": "texto de ajuda abaixo do campo",
+                    "type": "string"
+                },
+                "label": {
+                    "description": "Apresentação",
+                    "type": "string"
+                },
+                "max": {
+                    "description": "max de caracteres (texto) ou valor (numero)",
+                    "type": "integer"
+                },
+                "max_valor": {
+                    "description": "para tipo numero",
+                    "type": "number"
+                },
+                "min": {
+                    "description": "min de caracteres (texto) ou valor (numero)",
+                    "type": "integer"
+                },
+                "min_valor": {
+                    "description": "para tipo numero",
+                    "type": "number"
+                },
+                "obrigatorio": {
+                    "description": "Validações",
+                    "type": "boolean"
+                },
+                "opcoes": {
+                    "description": "Opções (apenas para select, radio, checkbox)",
+                    "type": "array",
+                    "items": {
+                        "type": "string"
+                    }
+                },
+                "placeholder": {
+                    "description": "ex: \"Digite seu nome\"",
+                    "type": "string"
+                },
+                "regex": {
+                    "type": "string"
+                },
+                "tipo": {
+                    "description": "Tipo",
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.TipoCampo"
+                        }
+                    ]
+                }
+            }
+        },
+        "models.CampoFormulario": {
+            "type": "object",
+            "properties": {
+                "configuracao": {
+                    "description": "CampoConfiguracao serializado",
+                    "type": "string"
+                },
+                "formulario_modelo_id": {
+                    "type": "string"
+                },
+                "nome": {
+                    "description": "nome técnico/interno",
+                    "type": "string"
+                },
+                "ordem": {
+                    "description": "ordem de exibição",
+                    "type": "integer"
+                }
+            }
+        },
+        "models.CampoFormularioDTO": {
+            "type": "object",
+            "properties": {
+                "configuracao": {
+                    "$ref": "#/definitions/models.CampoConfiguracao"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "ordem": {
+                    "type": "integer"
+                }
+            }
+        },
+        "models.FormularioModelo": {
+            "type": "object",
+            "properties": {
+                "campos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.CampoFormulario"
+                    }
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "ong_id": {
+                    "type": "string"
+                }
+            }
+        },
         "models.Ong": {
             "type": "object",
             "properties": {
@@ -627,6 +1286,38 @@
                     "type": "string"
                 }
             }
+        },
+        "models.PedidoAdocaoDTO": {
+            "type": "object",
+            "properties": {
+                "id": {
+                    "type": "string"
+                },
+                "ong_id": {
+                    "type": "string"
+                },
+                "respostas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.RespostaFormularioDTO"
+                    }
+                }
+            }
+        },
+        "models.PedidoAdocaoStatus": {
+            "type": "string",
+            "enum": [
+                "pendente",
+                "aprovado",
+                "rejeitado",
+                "cancelado"
+            ],
+            "x-enum-varnames": [
+                "PedidoAdocaoPendente",
+                "PedidoAdocaoAprovado",
+                "PedidoAdocaoRejeitado",
+                "PedidoAdocaoCancelado"
+            ]
         },
         "models.Pet": {
             "type": "object",
@@ -700,6 +1391,76 @@
                 "PetDraft"
             ]
         },
+        "models.RespostaFormularioDTO": {
+            "type": "object",
+            "properties": {
+                "campo": {
+                    "$ref": "#/definitions/models.CampoFormularioDTO"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "valor": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.TipoCampo": {
+            "type": "string",
+            "enum": [
+                "texto",
+                "numero",
+                "select",
+                "radio",
+                "checkbox",
+                "textarea",
+                "email",
+                "telefone",
+                "data"
+            ],
+            "x-enum-varnames": [
+                "TipoCampoTexto",
+                "TipoCampoNumero",
+                "TipoCampoSelect",
+                "TipoCampoRadio",
+                "TipoCampoCheckbox",
+                "TipoCampoTextarea",
+                "TipoCampoEmail",
+                "TipoCampoTelefone",
+                "TipoCampoData"
+            ]
+        },
+        "v1.CreateCampoInput": {
+            "type": "object",
+            "properties": {
+                "configuracao": {
+                    "$ref": "#/definitions/models.CampoConfiguracao"
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "ordem": {
+                    "type": "integer"
+                }
+            }
+        },
+        "v1.CreateFormularioModeloInput": {
+            "type": "object",
+            "properties": {
+                "campos": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v1.CreateCampoInput"
+                    }
+                },
+                "nome": {
+                    "type": "string"
+                },
+                "ong_id": {
+                    "type": "string"
+                }
+            }
+        },
         "v1.CreateOngInput": {
             "type": "object",
             "properties": {
@@ -722,6 +1483,23 @@
                 "telefone": {
                     "type": "string",
                     "example": "123"
+                }
+            }
+        },
+        "v1.CreatePedidoAdocaoInput": {
+            "type": "object",
+            "properties": {
+                "ong_id": {
+                    "type": "string"
+                },
+                "pet_id": {
+                    "type": "string"
+                },
+                "respostas": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/v1.CreateRespostaInput"
+                    }
                 }
             }
         },
@@ -760,6 +1538,17 @@
                 },
                 "status": {
                     "$ref": "#/definitions/models.PetStatus"
+                }
+            }
+        },
+        "v1.CreateRespostaInput": {
+            "type": "object",
+            "properties": {
+                "campo_formulario_id": {
+                    "type": "string"
+                },
+                "valor": {
+                    "type": "string"
                 }
             }
         },
@@ -811,6 +1600,22 @@
                 },
                 "total_registros": {
                     "type": "integer"
+                }
+            }
+        },
+        "v1.UpdateFormularioModeloInput": {
+            "type": "object",
+            "properties": {
+                "nome": {
+                    "type": "string"
+                }
+            }
+        },
+        "v1.UpdateStatusPedidoAdocaoInput": {
+            "type": "object",
+            "properties": {
+                "status": {
+                    "$ref": "#/definitions/models.PedidoAdocaoStatus"
                 }
             }
         }
