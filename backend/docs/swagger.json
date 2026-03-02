@@ -638,14 +638,12 @@
                     "type": "string"
                 },
                 "formulario_id": {
-                    "description": "OPCIONAL",
                     "type": "string"
                 },
                 "idade": {
                     "type": "integer"
                 },
                 "imagens": {
-                    "description": "ARRAY PostgreSQL (text[])",
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.PetImage"
@@ -668,6 +666,9 @@
                 },
                 "regiao": {
                     "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.PetStatus"
                 }
             }
         },
@@ -685,6 +686,19 @@
                     "type": "string"
                 }
             }
+        },
+        "models.PetStatus": {
+            "type": "string",
+            "enum": [
+                "adopted",
+                "available",
+                "draft"
+            ],
+            "x-enum-varnames": [
+                "PetAdopted",
+                "PetAvailable",
+                "PetDraft"
+            ]
         },
         "v1.CreateOngInput": {
             "type": "object",
@@ -743,6 +757,9 @@
                 },
                 "regiao": {
                     "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.PetStatus"
                 }
             }
         },

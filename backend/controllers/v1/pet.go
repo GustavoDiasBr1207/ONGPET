@@ -28,6 +28,7 @@ type CreatePetInput struct {
     Regiao       string     `json:"regiao"`
     FormularioID *uuid.UUID `json:"formulario_id"`
     OngID        uuid.UUID  `json:"ong_id"`
+	Status       models.PetStatus     `json:"status"`
 }
 
 type PetListResponse struct {
@@ -168,15 +169,6 @@ func CreatePet(c *gin.Context) error {
 
     req.Nome = strings.TrimSpace(req.Nome)
 
-    if req.Nome == "" {
-        return errors.New("nome é obrigatório")
-    }
-    if req.Idade <= 0 {
-        return errors.New("idade inválida")
-    }
-    if req.Peso <= 0 {
-        return errors.New("peso inválido")
-    }
     if req.OngID == uuid.Nil {
         return errors.New("ong_id é obrigatório")
     }
@@ -200,6 +192,7 @@ func CreatePet(c *gin.Context) error {
 		Porte:     req.Porte,
 		Regiao:    req.Regiao,
 		OngID:     req.OngID,
+		Status:    models.PetDraft,
 	}
 
     // ✅ CORRETO: verifica se o ponteiro não é nil e se não é uuid.Nil
@@ -281,16 +274,30 @@ func UploadPetImages(c *gin.Context) error {
 		return err
 	}
 
-	// 🔁 UPLOAD + CREATE
+	// 🔁 UPLOAD + CREATE (COM RESIZE + COMPRESS)
 	for i, file := range files {
+
 		if !utils.IsValidImage(file) {
 			return errors.New("tipo de imagem inválido")
 		}
 
 		position := lastPosition + i + 1
 
-		url, err := utils.UploadFile(
+		// 🖼️ OTIMIZA IMAGEM
+		optimized, err := utils.ResizeAndCompressImage(
 			file,
+			1280, // largura máxima
+			70,   // qualidade JPEG
+		)
+		if err != nil {
+			return err
+		}
+
+		// ☁️ UPLOAD OTIMIZADO
+		url, err := utils.UploadOptimizedFile(
+			optimized.Buffer,
+			optimized.ContentType,
+			optimized.Extension,
 			petID.String(),
 			pet.Nome,
 			position,
@@ -299,6 +306,7 @@ func UploadPetImages(c *gin.Context) error {
 			return err
 		}
 
+		// 💾 SALVA NO BANCO
 		image := models.PetImage{
 			URL:      url,
 			PetID:    petID,
@@ -382,6 +390,9 @@ func UpdatePet(c *gin.Context) error {
 	}
 	if req.Regiao != "" {
 		pet.Regiao = req.Regiao
+	}
+	if req.Status != "" {
+		pet.Status = models.PetStatus(req.Status)
 	}
 
 	// 🔐 Atualiza FormularioID com segurança
