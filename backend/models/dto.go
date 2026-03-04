@@ -22,5 +22,6 @@ type RespostaFormularioDTO struct {
 type PedidoAdocaoDTO struct {
 	ID        uuid.UUID               `json:"id"`
 	OngID     uuid.UUID               `json:"ong_id"`
+	PetID     uuid.UUID               `json:"pet_id"`
 	Respostas []RespostaFormularioDTO `json:"respostas"`
 }

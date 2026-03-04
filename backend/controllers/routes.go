@@ -37,35 +37,39 @@ func SetupRoutes() *gin.Engine {
 		// Auth (NÃO retorna error)
 		api.POST("/auth/login", v1.Login)
 
-		// ONG (retornam error)
+		// ONG
 		api.GET("/ongs", Handle(v1.ReadOngs))
 		api.POST("/ongs", RequireAuth(), Handle(v1.CreateOng))
 		api.PUT("/ongs/:id", RequireAuth(), Handle(v1.UpdateOng))
 		api.DELETE("/ongs/:id", RequireAuth(), Handle(v1.DeleteOng))
 
-		// Pet (retornam error)
+		// Pet
 		api.GET("/pets", Handle(v1.ReadPets))
 		api.GET("/pets/:id", Handle(v1.ReadPet))
-		// imagem: coloca antes da rota /pets/:id para evitar conflito de wildcard
-		api.DELETE("/pets/:id/imagens/:imageId", RequireAuth(), Handle(v1.DeletePetImage))
 		api.POST("/pets", RequireAuth(), Handle(v1.CreatePet))
-		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v1.UploadPetImages))
 		api.PUT("/pets/:id", RequireAuth(), Handle(v1.UpdatePet))
 		api.DELETE("/pets/:id", RequireAuth(), Handle(v1.DeletePet))
+		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v1.UploadPetImages))
+		api.DELETE("/pets/:id/imagens/:imageId", RequireAuth(), Handle(v1.DeletePetImage))
 
-		// Formulário (retornam error)
+		// Formulário
 		api.GET("/formularios", Handle(v1.ReadFormularios))
 		api.GET("/formularios/:id", Handle(v1.ReadFormulario))
 		api.POST("/formularios", RequireAuth(), Handle(v1.CreateFormulario))
 		api.PUT("/formularios/:id", RequireAuth(), Handle(v1.UpdateFormulario))
 		api.DELETE("/formularios/:id", RequireAuth(), Handle(v1.DeleteFormulario))
 
-		// Pedidos de adoção (retornam error)
-		api.GET("/pedidos-adoção", RequireAuth(), Handle(v1.ReadPedidosAdocao))
-		api.GET("/pedidos-adoção/:id", RequireAuth(), Handle(v1.ReadPedidoAdocao))
-		api.POST("/pedidos-adoção", Handle(v1.CreatePedidoAdocao)) // qualquer pessoa pode criar um pedido
-		api.PUT("/pedidos-adoção/:id/status", RequireAuth(), Handle(v1.UpdateStatusPedidoAdocao)) // só atualiza o status, não as respostas
-		api.DELETE("/pedidos-adoção/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
+		// Campos do Formulário
+		api.POST("/formularios/:id/campos", RequireAuth(), Handle(v1.CreateCampoFormulario))
+		api.PUT("/formularios/:id/campos/:campoId", RequireAuth(), Handle(v1.UpdateCampoFormulario))
+		api.DELETE("/formularios/:id/campos/:campoId", RequireAuth(), Handle(v1.DeleteCampoFormulario))
+
+		// Pedidos de adoção
+		api.GET("/pedidos-adocao", RequireAuth(), Handle(v1.ReadPedidosAdocao))
+		api.GET("/pedidos-adocao/:id", RequireAuth(), Handle(v1.ReadPedidoAdocao))
+		api.POST("/pedidos-adocao", Handle(v1.CreatePedidoAdocao)) // qualquer pessoa pode criar um pedido
+		api.PUT("/pedidos-adocao/:id/status", RequireAuth(), Handle(v1.UpdateStatusPedidoAdocao))
+		api.DELETE("/pedidos-adocao/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
 	}
 
 	// 404

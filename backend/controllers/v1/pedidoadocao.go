@@ -43,6 +43,7 @@ type CreatePedidoAdocaoInput struct {
 // @Param ong_id query string false "Filtrar por ONG"
 // @Param pet_id query string false "Filtrar por Pet"
 // @Success 200 {object} map[string]interface{}
+// @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao [get]
 func ReadPedidosAdocao(c *gin.Context) error {
 	db := database.GetDB()
@@ -107,6 +108,7 @@ func ReadPedidosAdocao(c *gin.Context) error {
 // @Param id path string true "ID do Pedido"
 // @Success 200 {object} models.PedidoAdocaoDTO
 // @Failure 404 {object} map[string]string
+// @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [get]
 func ReadPedidoAdocao(c *gin.Context) error {
 	db := database.GetDB()
@@ -188,8 +190,10 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		}
 	}
 
+	// ✅ CORRIGIDO: PetID adicionado
 	pedido := models.PedidoAdocao{
 		OngID: req.OngID,
+		PetID: req.PetID,
 	}
 
 	if err := db.Create(&pedido).Error; err != nil {
@@ -260,7 +264,7 @@ func DeletePedidoAdocao(c *gin.Context) error {
 }
 
 // ─────────────────────────────────────────────────────────────
-// Adicione este bloco no pedido_adocao_controller.go
+// STATUS
 // ─────────────────────────────────────────────────────────────
 
 type UpdateStatusPedidoAdocaoInput struct {
@@ -285,7 +289,6 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	// Valida status
 	switch req.Status {
 	case models.PedidoAdocaoPendente,
 		models.PedidoAdocaoAprovado,
@@ -317,7 +320,6 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	// Recarrega com respostas
 	if err := db.
 		Preload("Respostas.CampoFormulario").
 		First(&pedido, "id = ?", pedidoID).Error; err != nil {
@@ -335,10 +337,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 // VALIDAÇÃO DE RESPOSTAS
 // ─────────────────────────────────────────────────────────────
 
-// validarRespostas verifica as respostas contra a configuração de cada campo do formulário.
-// Checa campos obrigatórios, min/max, regex, e opções válidas para select/radio/checkbox.
 func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoFormulario) error {
-	// Indexa respostas por CampoFormularioID
 	respostaMap := make(map[uuid.UUID]string, len(respostas))
 	for _, r := range respostas {
 		respostaMap[r.CampoFormularioID] = r.Valor
@@ -347,18 +346,17 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 	for _, campo := range campos {
 		var cfg models.CampoConfiguracao
 		if err := json.Unmarshal(campo.Configuracao, &cfg); err != nil {
-			continue // ignora campo com config inválida
+			continue
 		}
 
 		valor, respondido := respostaMap[campo.ID]
 
-		// Campo obrigatório sem resposta
 		if cfg.Obrigatorio && (!respondido || strings.TrimSpace(valor) == "") {
 			return fmt.Errorf("campo '%s' é obrigatório", cfg.Label)
 		}
 
 		if !respondido || strings.TrimSpace(valor) == "" {
-			continue // campo opcional sem resposta — ok
+			continue
 		}
 
 		switch cfg.Tipo {
@@ -394,7 +392,6 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 			}
 
 		case models.TipoCampoCheckbox:
-			// Checkbox permite múltiplos valores separados por vírgula
 			selecionados := strings.Split(valor, ",")
 			for _, s := range selecionados {
 				s = strings.TrimSpace(s)

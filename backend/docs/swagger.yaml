@@ -95,6 +95,8 @@ definitions:
         type: string
       ong_id:
         type: string
+      pet_id:
+        type: string
       respostas:
         items:
           $ref: '#/definitions/models.RespostaFormularioDTO'
@@ -374,6 +376,8 @@ paths:
             items:
               $ref: '#/definitions/models.FormularioModelo'
             type: array
+      security:
+      - ApiKeyAuth: []
       summary: Lista todos os Formulários Modelo
       tags:
       - FormularioModelo
@@ -445,6 +449,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - ApiKeyAuth: []
       summary: Busca um Formulário Modelo pelo ID
       tags:
       - FormularioModelo
@@ -711,6 +717,8 @@ paths:
           schema:
             additionalProperties: true
             type: object
+      security:
+      - ApiKeyAuth: []
       summary: Lista todos os Pedidos de Adoção
       tags:
       - PedidoAdocao
@@ -794,6 +802,8 @@ paths:
             additionalProperties:
               type: string
             type: object
+      security:
+      - ApiKeyAuth: []
       summary: Busca um Pedido de Adoção pelo ID
       tags:
       - PedidoAdocao

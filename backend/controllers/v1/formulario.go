@@ -40,6 +40,7 @@ type UpdateFormularioModeloInput struct {
 
 // @Summary Lista todos os Formulários Modelo
 // @Tags FormularioModelo
+// @Security ApiKeyAuth
 // @Produce json
 // @Param ong_id query string false "Filtrar por ONG"
 // @Success 200 {array} models.FormularioModelo
@@ -68,6 +69,7 @@ func ReadFormularios(c *gin.Context) error {
 // @Summary Busca um Formulário Modelo pelo ID
 // @Tags FormularioModelo
 // @Produce json
+// @Security ApiKeyAuth
 // @Param id path string true "ID do Formulário"
 // @Success 200 {object} models.FormularioModelo
 // @Failure 404 {object} map[string]string

@@ -70,6 +70,11 @@ const docTemplate = `{
         },
         "/api/v1/formularios": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -137,6 +142,11 @@ const docTemplate = `{
         },
         "/api/v1/formularios/{id}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -596,6 +606,11 @@ const docTemplate = `{
         },
         "/api/v1/pedidos-adocao": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -676,6 +691,11 @@ const docTemplate = `{
         },
         "/api/v1/pedidos-adocao/{id}": {
             "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
                 "produces": [
                     "application/json"
                 ],
@@ -1300,6 +1320,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ong_id": {
+                    "type": "string"
+                },
+                "pet_id": {
                     "type": "string"
                 },
                 "respostas": {
