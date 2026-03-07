@@ -1184,6 +1184,9 @@ const docTemplate = `{
         "models.CampoConfiguracao": {
             "type": "object",
             "properties": {
+                "ativo": {
+                    "type": "boolean"
+                },
                 "descricao": {
                     "description": "texto de ajuda abaixo do campo",
                     "type": "string"

@@ -38,6 +38,7 @@ type CampoConfiguracao struct {
 
 	// Validações
 	Obrigatorio bool    `json:"obrigatorio"`
+	Ativo       bool    `json:"ativo,omitempty"`
 	Min         *int    `json:"min,omitempty"` // min de caracteres (texto) ou valor (numero)
 	Max         *int    `json:"max,omitempty"` // max de caracteres (texto) ou valor (numero)
 	Regex       string  `json:"regex,omitempty"`

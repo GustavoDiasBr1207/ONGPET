@@ -2,6 +2,8 @@ basePath: /
 definitions:
   models.CampoConfiguracao:
     properties:
+      ativo:
+        type: boolean
       descricao:
         description: texto de ajuda abaixo do campo
         type: string
