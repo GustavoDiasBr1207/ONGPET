@@ -67,11 +67,11 @@ type FormularioModelo struct {
 type CampoFormulario struct {
 	BaseModel `swaggerignore:"true"`
 
-	FormularioModeloID uuid.UUID `gorm:"type:uuid;not null" json:"formulario_modelo_id"`
+	FormularioModeloID *uuid.UUID `gorm:"type:uuid" json:"formulario_modelo_id"` // ponteiro = nullable
 
-	Nome         string         `gorm:"type:text;not null" json:"nome"`          // nome técnico/interno
-	Ordem        int            `gorm:"default:0" json:"ordem"`                  // ordem de exibição
-	Configuracao datatypes.JSON `gorm:"type:jsonb;not null" json:"configuracao" swaggertype:"string"` // CampoConfiguracao serializado
+	Nome         string         `gorm:"type:text;not null" json:"nome"`
+	Ordem        int            `gorm:"default:0" json:"ordem"`
+	Configuracao datatypes.JSON `gorm:"type:jsonb;not null" json:"configuracao" swaggertype:"string"`
 
 	FormularioModelo FormularioModelo `gorm:"foreignKey:FormularioModeloID" json:"-" swaggerignore:"true"`
 }

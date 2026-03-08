@@ -1243,18 +1243,16 @@ const docTemplate = `{
             "type": "object",
             "properties": {
                 "configuracao": {
-                    "description": "CampoConfiguracao serializado",
                     "type": "string"
                 },
                 "formulario_modelo_id": {
+                    "description": "ponteiro = nullable",
                     "type": "string"
                 },
                 "nome": {
-                    "description": "nome técnico/interno",
                     "type": "string"
                 },
                 "ordem": {
-                    "description": "ordem de exibição",
                     "type": "integer"
                 }
             }
@@ -1319,6 +1317,9 @@ const docTemplate = `{
         "models.PedidoAdocaoDTO": {
             "type": "object",
             "properties": {
+                "created_at": {
+                    "type": "string"
+                },
                 "id": {
                     "type": "string"
                 },

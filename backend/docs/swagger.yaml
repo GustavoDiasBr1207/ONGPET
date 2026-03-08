@@ -43,15 +43,13 @@ definitions:
   models.CampoFormulario:
     properties:
       configuracao:
-        description: CampoConfiguracao serializado
         type: string
       formulario_modelo_id:
+        description: ponteiro = nullable
         type: string
       nome:
-        description: nome técnico/interno
         type: string
       ordem:
-        description: ordem de exibição
         type: integer
     type: object
   models.CampoFormularioDTO:
@@ -93,6 +91,8 @@ definitions:
     type: object
   models.PedidoAdocaoDTO:
     properties:
+      created_at:
+        type: string
       id:
         type: string
       ong_id:

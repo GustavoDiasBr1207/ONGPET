@@ -233,15 +233,33 @@ func DeleteFormulario(c *gin.Context) error {
 		return errors.New("ID do formulário inválido")
 	}
 
-	result := db.Where("id = ?", formularioID).Delete(&models.FormularioModelo{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("Formulário não encontrado")
+	if err := db.First(&models.FormularioModelo{}, "id = ?", formularioID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Formulário não encontrado")
+		}
+		return err
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Formulário removido com sucesso"})
+	// Soft delete em cascata: respostas → campos → formulário
+	if err := db.Where("campo_formulario_id IN (?)",
+		db.Model(&models.CampoFormulario{}).
+			Select("id").
+			Where("formulario_modelo_id = ?", formularioID),
+	).Delete(&models.RespostaFormulario{}).Error; err != nil {
+		return err
+	}
+
+	if err := db.Where("formulario_modelo_id = ?", formularioID).
+		Delete(&models.CampoFormulario{}).Error; err != nil {
+		return err
+	}
+
+	if err := db.Where("id = ?", formularioID).
+		Delete(&models.FormularioModelo{}).Error; err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Formulário e campos removidos com sucesso"})
 	return nil
 }
 
@@ -397,13 +415,19 @@ func DeleteCampoFormulario(c *gin.Context) error {
 		return errors.New("ID do campo inválido")
 	}
 
-	result := db.Where("id = ? AND formulario_modelo_id = ?", campoID, formularioID).
-		Delete(&models.CampoFormulario{})
-	if result.Error != nil {
-		return result.Error
+	if err := db.First(&models.CampoFormulario{}, "id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Campo não encontrado")
+		}
+		return err
 	}
-	if result.RowsAffected == 0 {
-		return errors.New("Campo não encontrado")
+
+	if err := db.Exec("DELETE FROM resposta_formulario WHERE campo_formulario_id = ?", campoID).Error; err != nil {
+		return err
+	}
+
+	if err := db.Exec("DELETE FROM campo_formulario WHERE id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
+		return err
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Campo removido com sucesso"})
@@ -420,7 +444,7 @@ func buildCampo(formularioID uuid.UUID, req CreateCampoInput) (models.CampoFormu
 		return models.CampoFormulario{}, errors.New("erro ao serializar configuração")
 	}
 	return models.CampoFormulario{
-		FormularioModeloID: formularioID,
+		FormularioModeloID: &formularioID, // ponteiro
 		Nome:               req.Nome,
 		Ordem:              req.Ordem,
 		Configuracao:       configJSON,
