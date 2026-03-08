@@ -439,6 +439,7 @@ func mapPedidoToDTO(p models.PedidoAdocao) models.PedidoAdocaoDTO {
 		ID:        p.ID,
 		OngID:     p.OngID,
 		PetID:     p.PetID,
+		Status:    p.Status, 
 		CreatedAt: p.CreatedAt,
 		Respostas: respostasDTO,
 	}

@@ -103,6 +103,8 @@ definitions:
         items:
           $ref: '#/definitions/models.RespostaFormularioDTO'
         type: array
+      status:
+        $ref: '#/definitions/models.PedidoAdocaoStatus'
     type: object
   models.PedidoAdocaoStatus:
     enum:

@@ -1334,6 +1334,9 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/models.RespostaFormularioDTO"
                     }
+                },
+                "status": {
+                    "$ref": "#/definitions/models.PedidoAdocaoStatus"
                 }
             }
         },
