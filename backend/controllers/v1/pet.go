@@ -192,7 +192,7 @@ func CreatePet(c *gin.Context) error {
 		Porte:     req.Porte,
 		Regiao:    req.Regiao,
 		OngID:     req.OngID,
-		Status:    models.PetDraft,
+		Status:    req.Status,
 	}
 
     // ✅ CORRETO: verifica se o ponteiro não é nil e se não é uuid.Nil
@@ -371,25 +371,23 @@ func UpdatePet(c *gin.Context) error {
 		pet.Nome = nome
 	}
 	if req.Especie != "" {
-		pet.Especie = req.Especie
+		pet.Especie = strings.TrimSpace(req.Especie)
 	}
 	if req.Raca != "" {
-		pet.Raca = req.Raca
+		pet.Raca = strings.TrimSpace(req.Raca)
 	}
-	if req.Idade > 0 {
-		pet.Idade = req.Idade
-	}
+	// Permite atualizar idade mesmo que seja 0
+	pet.Idade = req.Idade
 	if req.Descricao != "" {
-		pet.Descricao = req.Descricao
+		pet.Descricao = strings.TrimSpace(req.Descricao)
 	}
-	if req.Peso > 0 {
-		pet.Peso = req.Peso
+	// Permite atualizar peso mesmo que seja 0
+	pet.Peso = req.Peso
+	if porte := strings.TrimSpace(req.Porte); porte != "" {
+		pet.Porte = porte
 	}
-	if req.Porte != "" {
-		pet.Porte = req.Porte
-	}
-	if req.Regiao != "" {
-		pet.Regiao = req.Regiao
+	if regiao := strings.TrimSpace(req.Regiao); regiao != "" {
+		pet.Regiao = regiao
 	}
 	if req.Status != "" {
 		pet.Status = models.PetStatus(req.Status)

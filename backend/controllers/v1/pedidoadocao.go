@@ -49,7 +49,10 @@ func ReadPedidosAdocao(c *gin.Context) error {
 	db := database.GetDB()
 	query := db.Model(&models.PedidoAdocao{})
 
-	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
+	ongID := strings.TrimSpace(c.Query("ong_id"))
+	fmt.Println("[ReadPedidosAdocao] ongID from query:", ongID)
+	
+	if ongID != "" {
 		query = query.Where("ong_id = ?", ongID)
 	}
 
@@ -58,17 +61,22 @@ func ReadPedidosAdocao(c *gin.Context) error {
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page <= 0 {
+		fmt.Println("[ReadPedidosAdocao] page error:", err)
 		return errors.New("page inválido")
 	}
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
+		fmt.Println("[ReadPedidosAdocao] limit error:", err)
 		return errors.New("limit inválido")
 	}
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
+		fmt.Println("[ReadPedidosAdocao] count error:", err)
 		return err
 	}
+	
+	fmt.Println("[ReadPedidosAdocao] Total pedidos encontrados:", total)
 
 	offset := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
@@ -76,6 +84,7 @@ func ReadPedidosAdocao(c *gin.Context) error {
 	var pedidos []models.PedidoAdocao
 	if err := query.
 		Preload("Respostas.CampoFormulario").
+		Order("created_at DESC").
 		Offset(offset).
 		Limit(limit + 1).
 		Find(&pedidos).Error; err != nil {
@@ -190,15 +199,20 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		}
 	}
 
-	// ✅ CORRIGIDO: PetID adicionado
+	// ✅ CORRIGIDO: PetID adicionado e Status setado como pendente por padrão
 	pedido := models.PedidoAdocao{
-		OngID: req.OngID,
-		PetID: req.PetID,
+		OngID:  req.OngID,
+		PetID:  req.PetID,
+		Status: models.PedidoAdocaoPendente,
 	}
+
+	fmt.Println("[CreatePedidoAdocao] Criando pedido com status:", pedido.Status)
 
 	if err := db.Create(&pedido).Error; err != nil {
 		return err
 	}
+
+	fmt.Println("[CreatePedidoAdocao] Pedido criado com ID:", pedido.ID, "Status:", pedido.Status)
 
 	// Cria respostas
 	for _, r := range req.Respostas {
@@ -221,6 +235,8 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		First(&pedido, "id = ?", pedido.ID).Error; err != nil {
 		return err
 	}
+
+	fmt.Println("[CreatePedidoAdocao] Resposta final - Pedido ID:", pedido.ID, "Status:", pedido.Status)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Pedido de adoção criado com sucesso",
