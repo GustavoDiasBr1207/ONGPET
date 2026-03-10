@@ -38,6 +38,7 @@ type CampoConfiguracao struct {
 
 	// Validações
 	Obrigatorio bool    `json:"obrigatorio"`
+	Ativo       bool    `json:"ativo,omitempty"`
 	Min         *int    `json:"min,omitempty"` // min de caracteres (texto) ou valor (numero)
 	Max         *int    `json:"max,omitempty"` // max de caracteres (texto) ou valor (numero)
 	Regex       string  `json:"regex,omitempty"`
@@ -50,7 +51,7 @@ type CampoConfiguracao struct {
 // ─────────────────────────────────────────────────────────────
 
 type FormularioModelo struct {
-	BaseModel `swaggerignore:"true"`
+	BaseModel
 
 	OngID uuid.UUID `gorm:"type:uuid;not null" json:"ong_id"`
 	Ong   Ong       `gorm:"foreignKey:OngID;references:ID" json:"-" swaggerignore:"true"`
@@ -64,13 +65,13 @@ type FormularioModelo struct {
 // ─────────────────────────────────────────────────────────────
 
 type CampoFormulario struct {
-	BaseModel `swaggerignore:"true"`
+	BaseModel
 
-	FormularioModeloID uuid.UUID `gorm:"type:uuid;not null" json:"formulario_modelo_id"`
+	FormularioModeloID *uuid.UUID `gorm:"type:uuid" json:"formulario_modelo_id"` // ponteiro = nullable
 
-	Nome         string         `gorm:"type:text;not null" json:"nome"`          // nome técnico/interno
-	Ordem        int            `gorm:"default:0" json:"ordem"`                  // ordem de exibição
-	Configuracao datatypes.JSON `gorm:"type:jsonb;not null" json:"configuracao" swaggertype:"string"` // CampoConfiguracao serializado
+	Nome         string         `gorm:"type:text;not null" json:"nome"`
+	Ordem        int            `gorm:"default:0" json:"ordem"`
+	Configuracao datatypes.JSON `gorm:"type:jsonb;not null" json:"configuracao" swaggertype:"string"`
 
 	FormularioModelo FormularioModelo `gorm:"foreignKey:FormularioModeloID" json:"-" swaggerignore:"true"`
 }
@@ -80,7 +81,7 @@ type CampoFormulario struct {
 // ─────────────────────────────────────────────────────────────
 
 type RespostaFormulario struct {
-	BaseModel `swaggerignore:"true"`
+	BaseModel
 
 	PedidoAdocaoID    uuid.UUID `gorm:"type:uuid;not null" json:"pedido_adocao_id"`
 	CampoFormularioID uuid.UUID `gorm:"type:uuid;not null" json:"campo_formulario_id"`

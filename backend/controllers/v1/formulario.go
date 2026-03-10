@@ -3,7 +3,9 @@ package v1
 import (
 	"encoding/json"
 	"errors"
+	"math"
 	"net/http"
+	"strconv"
 	"strings"
 
 	"ongpet/database"
@@ -34,6 +36,13 @@ type UpdateFormularioModeloInput struct {
 	Nome string `json:"nome"`
 }
 
+type FormularioListResponse struct {
+	Dados          []models.FormularioModelo `json:"dados"`
+	TotalRegistros int64                     `json:"total_registros"`
+	TotalPaginas   int                       `json:"total_paginas"`
+	ProximaPagina  bool                      `json:"proxima_pagina"`
+}
+
 // ─────────────────────────────────────────────────────────────
 // FORMULARIO MODELO — CRUD
 // ─────────────────────────────────────────────────────────────
@@ -43,7 +52,9 @@ type UpdateFormularioModeloInput struct {
 // @Security ApiKeyAuth
 // @Produce json
 // @Param ong_id query string false "Filtrar por ONG"
-// @Success 200 {array} models.FormularioModelo
+// @Param page   query int    false "Página (default: 1)"
+// @Param limit  query int    false "Itens por página (default: 10)"
+// @Success 200 {object} v1.FormularioListResponse
 // @Router /api/v1/formularios [get]
 func ReadFormularios(c *gin.Context) error {
 	db := database.GetDB()
@@ -53,16 +64,52 @@ func ReadFormularios(c *gin.Context) error {
 		query = query.Where("ong_id = ?", ongID)
 	}
 
+	// ── Paginação ──────────────────────────────────────────────
+	pageStr  := c.DefaultQuery("page",  "1")
+	limitStr := c.DefaultQuery("limit", "10")
+
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		return errors.New("page inválido")
+	}
+
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		return errors.New("limit inválido")
+	}
+
+	var total int64
+	if err := query.Count(&total).Error; err != nil {
+		return err
+	}
+
+	offset     := (page - 1) * limit
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
 	var formularios []models.FormularioModelo
 	if err := query.
 		Preload("Campos", func(tx *gorm.DB) *gorm.DB {
 			return tx.Order("ordem ASC")
 		}).
+		Order("created_at DESC").
+		Offset(offset).
+		Limit(limit + 1).
 		Find(&formularios).Error; err != nil {
 		return err
 	}
 
-	c.JSON(http.StatusOK, formularios)
+	hasNext := false
+	if len(formularios) > limit {
+		hasNext = true
+		formularios = formularios[:limit]
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"dados":           formularios,
+		"total_registros": total,
+		"total_paginas":   totalPages,
+		"proxima_pagina":  hasNext,
+	})
 	return nil
 }
 
@@ -152,7 +199,6 @@ func CreateFormulario(c *gin.Context) error {
 		}
 	}
 
-	// Recarrega com campos ordenados
 	if err := db.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
 		return tx.Order("ordem ASC")
 	}).First(&formulario, "id = ?", formulario.ID).Error; err != nil {
@@ -233,15 +279,32 @@ func DeleteFormulario(c *gin.Context) error {
 		return errors.New("ID do formulário inválido")
 	}
 
-	result := db.Where("id = ?", formularioID).Delete(&models.FormularioModelo{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("Formulário não encontrado")
+	if err := db.First(&models.FormularioModelo{}, "id = ?", formularioID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Formulário não encontrado")
+		}
+		return err
 	}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Formulário removido com sucesso"})
+	if err := db.Where("campo_formulario_id IN (?)",
+		db.Model(&models.CampoFormulario{}).
+			Select("id").
+			Where("formulario_modelo_id = ?", formularioID),
+	).Delete(&models.RespostaFormulario{}).Error; err != nil {
+		return err
+	}
+
+	if err := db.Where("formulario_modelo_id = ?", formularioID).
+		Delete(&models.CampoFormulario{}).Error; err != nil {
+		return err
+	}
+
+	if err := db.Where("id = ?", formularioID).
+		Delete(&models.FormularioModelo{}).Error; err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, gin.H{"message": "Formulário e campos removidos com sucesso"})
 	return nil
 }
 
@@ -289,7 +352,6 @@ func CreateCampoFormulario(c *gin.Context) error {
 		return err
 	}
 
-	// Auto ordem se não informada
 	if req.Ordem == 0 {
 		var lastOrdem int
 		db.Model(&models.CampoFormulario{}).
@@ -397,13 +459,19 @@ func DeleteCampoFormulario(c *gin.Context) error {
 		return errors.New("ID do campo inválido")
 	}
 
-	result := db.Where("id = ? AND formulario_modelo_id = ?", campoID, formularioID).
-		Delete(&models.CampoFormulario{})
-	if result.Error != nil {
-		return result.Error
+	if err := db.First(&models.CampoFormulario{}, "id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Campo não encontrado")
+		}
+		return err
 	}
-	if result.RowsAffected == 0 {
-		return errors.New("Campo não encontrado")
+
+	if err := db.Exec("DELETE FROM resposta_formulario WHERE campo_formulario_id = ?", campoID).Error; err != nil {
+		return err
+	}
+
+	if err := db.Exec("DELETE FROM campo_formulario WHERE id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
+		return err
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Campo removido com sucesso"})
@@ -420,7 +488,7 @@ func buildCampo(formularioID uuid.UUID, req CreateCampoInput) (models.CampoFormu
 		return models.CampoFormulario{}, errors.New("erro ao serializar configuração")
 	}
 	return models.CampoFormulario{
-		FormularioModeloID: formularioID,
+		FormularioModeloID: &formularioID,
 		Nome:               req.Nome,
 		Ordem:              req.Ordem,
 		Configuracao:       configJSON,

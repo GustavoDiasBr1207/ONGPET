@@ -1,6 +1,10 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // ─────────────────────────────────────────────────────────────
 // DTOs
@@ -23,5 +27,7 @@ type PedidoAdocaoDTO struct {
 	ID        uuid.UUID               `json:"id"`
 	OngID     uuid.UUID               `json:"ong_id"`
 	PetID     uuid.UUID               `json:"pet_id"`
+	Status    PedidoAdocaoStatus      `json:"status"`
+	CreatedAt time.Time               `json:"created_at"`
 	Respostas []RespostaFormularioDTO `json:"respostas"`
 }
