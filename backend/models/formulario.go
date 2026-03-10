@@ -51,7 +51,7 @@ type CampoConfiguracao struct {
 // ─────────────────────────────────────────────────────────────
 
 type FormularioModelo struct {
-	BaseModel `swaggerignore:"true"`
+	BaseModel
 
 	OngID uuid.UUID `gorm:"type:uuid;not null" json:"ong_id"`
 	Ong   Ong       `gorm:"foreignKey:OngID;references:ID" json:"-" swaggerignore:"true"`
@@ -65,7 +65,7 @@ type FormularioModelo struct {
 // ─────────────────────────────────────────────────────────────
 
 type CampoFormulario struct {
-	BaseModel `swaggerignore:"true"`
+	BaseModel
 
 	FormularioModeloID *uuid.UUID `gorm:"type:uuid" json:"formulario_modelo_id"` // ponteiro = nullable
 
@@ -81,7 +81,7 @@ type CampoFormulario struct {
 // ─────────────────────────────────────────────────────────────
 
 type RespostaFormulario struct {
-	BaseModel `swaggerignore:"true"`
+	BaseModel
 
 	PedidoAdocaoID    uuid.UUID `gorm:"type:uuid;not null" json:"pedido_adocao_id"`
 	CampoFormularioID uuid.UUID `gorm:"type:uuid;not null" json:"campo_formulario_id"`

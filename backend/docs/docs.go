@@ -106,8 +106,7 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/v1.FormularioListResponse"
                         }
                     }
                 }
@@ -640,14 +639,25 @@ const docTemplate = `{
                         "description": "Filtrar por Pet",
                         "name": "pet_id",
                         "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página",
+                        "name": "limit",
+                        "in": "query"
                     }
                 ],
                 "responses": {
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "type": "object",
-                            "additionalProperties": true
+                            "$ref": "#/definitions/v1.PedidoAdocaoListResponse"
                         }
                     }
                 }
@@ -860,6 +870,50 @@ const docTemplate = `{
                     "Pet"
                 ],
                 "summary": "Lista todos os Pets",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filtrar por nome",
+                        "name": "nome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtrar por espécie",
+                        "name": "especie",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtrar por porte",
+                        "name": "porte",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtrar por região",
+                        "name": "regiao",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtrar por ONG",
+                        "name": "ong_id",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (default: 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1255,8 +1309,14 @@ const docTemplate = `{
                 "configuracao": {
                     "type": "string"
                 },
+                "created_at": {
+                    "type": "string"
+                },
                 "formulario_modelo_id": {
                     "description": "ponteiro = nullable",
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 },
                 "nome": {
@@ -1264,6 +1324,9 @@ const docTemplate = `{
                 },
                 "ordem": {
                     "type": "integer"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -1293,10 +1356,19 @@ const docTemplate = `{
                         "$ref": "#/definitions/models.CampoFormulario"
                     }
                 },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
                 "nome": {
                     "type": "string"
                 },
                 "ong_id": {
+                    "type": "string"
+                },
+                "updated_at": {
                     "type": "string"
                 }
             }
@@ -1368,6 +1440,9 @@ const docTemplate = `{
         "models.Pet": {
             "type": "object",
             "properties": {
+                "created_at": {
+                    "type": "string"
+                },
                 "descricao": {
                     "type": "string"
                 },
@@ -1375,6 +1450,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "formulario_id": {
+                    "type": "string"
+                },
+                "id": {
                     "type": "string"
                 },
                 "idade": {
@@ -1406,6 +1484,9 @@ const docTemplate = `{
                 },
                 "status": {
                     "$ref": "#/definitions/models.PetStatus"
+                },
+                "updated_at": {
+                    "type": "string"
                 }
             }
         },
@@ -1598,6 +1679,26 @@ const docTemplate = `{
                 }
             }
         },
+        "v1.FormularioListResponse": {
+            "type": "object",
+            "properties": {
+                "dados": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.FormularioModelo"
+                    }
+                },
+                "proxima_pagina": {
+                    "type": "boolean"
+                },
+                "total_paginas": {
+                    "type": "integer"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
         "v1.LoginRequest": {
             "type": "object",
             "properties": {
@@ -1616,6 +1717,26 @@ const docTemplate = `{
                     "type": "array",
                     "items": {
                         "$ref": "#/definitions/models.Ong"
+                    }
+                },
+                "proxima_pagina": {
+                    "type": "boolean"
+                },
+                "total_paginas": {
+                    "type": "integer"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
+        "v1.PedidoAdocaoListResponse": {
+            "type": "object",
+            "properties": {
+                "dados": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.PedidoAdocaoDTO"
                     }
                 },
                 "proxima_pagina": {

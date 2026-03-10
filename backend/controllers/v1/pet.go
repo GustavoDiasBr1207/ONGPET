@@ -42,6 +42,13 @@ type PetListResponse struct {
 // @Description Retorna todos os pets cadastrados
 // @Tags Pet
 // @Produce json
+// @Param nome query string false "Filtrar por nome"
+// @Param especie query string false "Filtrar por espécie"
+// @Param porte query string false "Filtrar por porte"
+// @Param regiao query string false "Filtrar por região"
+// @Param ong_id query string false "Filtrar por ONG"
+// @Param page query int false "Página (default: 1)"
+// @Param limit query int false "Itens por página (default: 10)"
 // @Success 200 {object} v1.PetListResponse
 // @Router /api/v1/pets [get]
 func ReadPets(c *gin.Context) error {

@@ -36,6 +36,13 @@ type UpdateFormularioModeloInput struct {
 	Nome string `json:"nome"`
 }
 
+type FormularioListResponse struct {
+	Dados          []models.FormularioModelo `json:"dados"`
+	TotalRegistros int64                     `json:"total_registros"`
+	TotalPaginas   int                       `json:"total_paginas"`
+	ProximaPagina  bool                      `json:"proxima_pagina"`
+}
+
 // ─────────────────────────────────────────────────────────────
 // FORMULARIO MODELO — CRUD
 // ─────────────────────────────────────────────────────────────
@@ -47,7 +54,7 @@ type UpdateFormularioModeloInput struct {
 // @Param ong_id query string false "Filtrar por ONG"
 // @Param page   query int    false "Página (default: 1)"
 // @Param limit  query int    false "Itens por página (default: 10)"
-// @Success 200 {object} map[string]interface{}
+// @Success 200 {object} v1.FormularioListResponse
 // @Router /api/v1/formularios [get]
 func ReadFormularios(c *gin.Context) error {
 	db := database.GetDB()

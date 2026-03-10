@@ -33,6 +33,13 @@ type CreatePedidoAdocaoInput struct {
 	Respostas []CreateRespostaInput `json:"respostas"`
 }
 
+type PedidoAdocaoListResponse struct {
+	Dados          []models.PedidoAdocaoDTO `json:"dados"`
+	TotalRegistros int64                    `json:"total_registros"`
+	TotalPaginas   int                      `json:"total_paginas"`
+	ProximaPagina  bool                     `json:"proxima_pagina"`
+}
+
 // ─────────────────────────────────────────────────────────────
 // PEDIDO ADOCAO — CRUD
 // ─────────────────────────────────────────────────────────────
@@ -42,7 +49,9 @@ type CreatePedidoAdocaoInput struct {
 // @Produce json
 // @Param ong_id query string false "Filtrar por ONG"
 // @Param pet_id query string false "Filtrar por Pet"
-// @Success 200 {object} map[string]interface{}
+// @Param page query int false "Página"
+// @Param limit query int false "Itens por página"
+// @Success 200 {object} v1.PedidoAdocaoListResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao [get]
 func ReadPedidosAdocao(c *gin.Context) error {
@@ -50,10 +59,13 @@ func ReadPedidosAdocao(c *gin.Context) error {
 	query := db.Model(&models.PedidoAdocao{})
 
 	ongID := strings.TrimSpace(c.Query("ong_id"))
-	fmt.Println("[ReadPedidosAdocao] ongID from query:", ongID)
-	
 	if ongID != "" {
 		query = query.Where("ong_id = ?", ongID)
+	}
+
+	petID := strings.TrimSpace(c.Query("pet_id"))
+	if petID != "" {
+		query = query.Where("pet_id = ?", petID)
 	}
 
 	pageStr := c.DefaultQuery("page", "1")
@@ -61,22 +73,23 @@ func ReadPedidosAdocao(c *gin.Context) error {
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page <= 0 {
-		fmt.Println("[ReadPedidosAdocao] page error:", err)
 		return errors.New("page inválido")
 	}
+
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
-		fmt.Println("[ReadPedidosAdocao] limit error:", err)
 		return errors.New("limit inválido")
+	}
+
+	// proteção contra requests gigantes
+	if limit > 100 {
+		limit = 100
 	}
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
-		fmt.Println("[ReadPedidosAdocao] count error:", err)
 		return err
 	}
-	
-	fmt.Println("[ReadPedidosAdocao] Total pedidos encontrados:", total)
 
 	offset := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
@@ -102,12 +115,14 @@ func ReadPedidosAdocao(c *gin.Context) error {
 		dtos[i] = mapPedidoToDTO(p)
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"dados":           dtos,
-		"total_registros": total,
-		"total_paginas":   totalPages,
-		"proxima_pagina":  hasNext,
-	})
+	response := PedidoAdocaoListResponse{
+		Dados:          dtos,
+		TotalRegistros: total,
+		TotalPaginas:   totalPages,
+		ProximaPagina:  hasNext,
+	}
+
+	c.JSON(http.StatusOK, response)
 	return nil
 }
 

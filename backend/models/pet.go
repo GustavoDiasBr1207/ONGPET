@@ -65,7 +65,7 @@ const (
 )
 
 type Pet struct {
-	BaseModel `swaggerignore:"true"`
+	BaseModel
 
 	Nome      string    `gorm:"type:text" json:"nome"`
 	Especie   string    `gorm:"type:text" json:"especie"`
