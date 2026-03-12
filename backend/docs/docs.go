@@ -1560,6 +1560,9 @@ const docTemplate = `{
                 "area_de_atuacao": {
                     "$ref": "#/definitions/models.OngRegiao"
                 },
+                "descricao": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
@@ -1578,10 +1581,16 @@ const docTemplate = `{
                 "nome_responsavel": {
                     "type": "string"
                 },
+                "site": {
+                    "type": "string"
+                },
                 "telefone": {
                     "type": "string"
                 },
                 "user_id": {
+                    "type": "string"
+                },
+                "whatsapp": {
                     "type": "string"
                 }
             }
@@ -1796,6 +1805,10 @@ const docTemplate = `{
         "v1.CreateOngInput": {
             "type": "object",
             "properties": {
+                "descricao": {
+                    "type": "string",
+                    "example": "ONG dedicada ao resgate de animais"
+                },
                 "email": {
                     "type": "string",
                     "example": "a@b.com"
@@ -1824,9 +1837,17 @@ const docTemplate = `{
                     ],
                     "example": "Serra"
                 },
+                "site": {
+                    "type": "string",
+                    "example": "https://minhaong.org"
+                },
                 "telefone": {
                     "type": "string",
                     "example": "123"
+                },
+                "whatsapp": {
+                    "type": "string",
+                    "example": "https://wa.me/5527999999999"
                 }
             }
         },
