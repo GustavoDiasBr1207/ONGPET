@@ -1,21 +1,33 @@
 package models
 
-import "github.com/google/uuid"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+// ─────────────────────────────────────────────────────────────
+// DTOs
+// ─────────────────────────────────────────────────────────────
 
 type CampoFormularioDTO struct {
-	ID           uuid.UUID `json:"id"`
-	Nome         string    `json:"nome"`
-	Configuracao string    `json:"configuracao"` // string simplificada
+	ID           uuid.UUID         `json:"id"`
+	Nome         string            `json:"nome"`
+	Ordem        int               `json:"ordem"`
+	Configuracao CampoConfiguracao `json:"configuracao"`
 }
 
 type RespostaFormularioDTO struct {
-	ID              uuid.UUID          `json:"id"`
-	CampoFormulario CampoFormularioDTO `json:"campoFormulario"`
-	Valor           string             `json:"valor"`
+	ID    uuid.UUID          `json:"id"`
+	Campo CampoFormularioDTO `json:"campo"`
+	Valor string             `json:"valor"`
 }
 
 type PedidoAdocaoDTO struct {
 	ID        uuid.UUID               `json:"id"`
 	OngID     uuid.UUID               `json:"ong_id"`
+	PetID     uuid.UUID               `json:"pet_id"`
+	Status    PedidoAdocaoStatus      `json:"status"`
+	CreatedAt time.Time               `json:"created_at"`
 	Respostas []RespostaFormularioDTO `json:"respostas"`
 }

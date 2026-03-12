@@ -4,7 +4,11 @@ import (
 	"github.com/google/uuid"
 )
 
-type PetStatus string 
+// ─────────────────────────────────────────────────────────────
+// PET STATUS
+// ─────────────────────────────────────────────────────────────
+
+type PetStatus string
 
 const (
 	PetAdopted   PetStatus = "adopted"
@@ -12,8 +16,56 @@ const (
 	PetDraft     PetStatus = "draft"
 )
 
+// ─────────────────────────────────────────────────────────────
+// PET PORTE (SIZE)
+// ─────────────────────────────────────────────────────────────
+
+type PetPorte string
+
+const (
+	PetPortePequeno PetPorte = "Pequeno"
+	PetPorteMedio   PetPorte = "Médio"
+	PetPorteGrande  PetPorte = "Grande"
+)
+
+// ─────────────────────────────────────────────────────────────
+// PET ESPECIE
+// ─────────────────────────────────────────────────────────────
+
+type PetEspecie string
+
+const (
+	PetEspecieCachorro PetEspecie = "Cachorro"
+	PetEspecieGato     PetEspecie = "Gato"
+	PetEspecieOutro    PetEspecie = "Outro"
+)
+
+// ─────────────────────────────────────────────────────────────
+// PET REGIAO
+// ─────────────────────────────────────────────────────────────
+
+type PetRegiao string
+
+const (
+	PetRegiaoSerra    PetRegiao = "Serra"
+	PetRegiaoVitoria  PetRegiao = "Vitória"
+	PetRegiaoVilaVelha PetRegiao = "Vila-Velha"
+	PetRegiaoCariacica PetRegiao = "Cariacica"
+)
+
+// ─────────────────────────────────────────────────────────────
+// PET SEXO
+// ─────────────────────────────────────────────────────────────
+
+type PetSexo string
+
+const (
+	PetSexoMacho  PetSexo = "Macho"
+	PetSexoFemea  PetSexo = "Fêmea"
+)
+
 type Pet struct {
-	BaseModel `swaggerignore:"true"`
+	BaseModel
 
 	Nome      string    `gorm:"type:text" json:"nome"`
 	Especie   string    `gorm:"type:text" json:"especie"`
