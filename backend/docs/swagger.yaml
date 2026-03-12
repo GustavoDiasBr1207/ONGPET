@@ -88,9 +88,15 @@ definitions:
     type: object
   models.Ong:
     properties:
+      area_de_atuacao:
+        $ref: '#/definitions/models.OngRegiao'
       email:
         type: string
       endereco:
+        type: string
+      instagram:
+        type: string
+      logo:
         type: string
       nome:
         type: string
@@ -101,6 +107,18 @@ definitions:
       user_id:
         type: string
     type: object
+  models.OngRegiao:
+    enum:
+    - Serra
+    - Vitória
+    - Vila-Velha
+    - Cariacica
+    type: string
+    x-enum-varnames:
+    - OngRegiaoSerra
+    - OngRegiaoVitoria
+    - OngRegiaoVilaVelha
+    - OngRegiaoCariacica
   models.PedidoAdocaoDTO:
     properties:
       created_at:
@@ -244,12 +262,19 @@ definitions:
       endereco:
         example: Rua A
         type: string
+      instagram:
+        example: '@minhaong'
+        type: string
       nome:
         example: Minha ONG
         type: string
       nome_responsavel:
         example: Fulano
         type: string
+      regiao:
+        allOf:
+        - $ref: '#/definitions/models.OngRegiao'
+        example: Serra
       telefone:
         example: "123"
         type: string
@@ -626,6 +651,23 @@ paths:
   /api/v1/ongs:
     get:
       description: Retorna todas as ONGs cadastradas
+      parameters:
+      - description: Filtrar por nome
+        in: query
+        name: nome
+        type: string
+      - description: Filtrar por e-mail
+        in: query
+        name: email
+        type: string
+      - description: 'Página (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Itens por página (default: 10)'
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
@@ -701,10 +743,34 @@ paths:
       summary: Remove uma ONG
       tags:
       - ONG
+    get:
+      description: Retorna uma ONG específica pelo ID
+      parameters:
+      - description: ID da ONG
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Ong'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Busca uma ONG pelo ID
+      tags:
+      - ONG
     put:
       consumes:
       - application/json
-      description: Atualiza os dados de uma ONG pelo ID
+      description: Atualiza os dados de uma ONG pelo ID (não atualiza logo)
       parameters:
       - description: ID da ONG
         in: path
@@ -750,6 +816,82 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Atualiza uma ONG existente
+      tags:
+      - ONG
+  /api/v1/ongs/{id}/logo:
+    delete:
+      description: Remove o logo de uma ONG pelo ID
+      parameters:
+      - description: ID da ONG
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              ong:
+                $ref: '#/definitions/models.Ong'
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove o logo de uma ONG
+      tags:
+      - ONG
+    post:
+      consumes:
+      - multipart/form-data
+      description: Envia uma imagem de logo para a ONG pelo ID (usando Supabase)
+      parameters:
+      - description: ID da ONG
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Logo da ONG
+        in: formData
+        name: logo
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              ong:
+                $ref: '#/definitions/models.Ong'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Faz upload do logo de uma ONG
       tags:
       - ONG
   /api/v1/pedidos-adocao:
