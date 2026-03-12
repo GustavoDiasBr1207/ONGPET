@@ -39,9 +39,12 @@ func SetupRoutes() *gin.Engine {
 
 		// ONG
 		api.GET("/ongs", Handle(v1.ReadOngs))
+		api.GET("/ongs/:id", Handle(v1.ReadOng))
 		api.POST("/ongs", RequireAuth(), Handle(v1.CreateOng))
 		api.PUT("/ongs/:id", RequireAuth(), Handle(v1.UpdateOng))
 		api.DELETE("/ongs/:id", RequireAuth(), Handle(v1.DeleteOng))
+		api.POST("/ongs/:id/logo", RequireAuth(), Handle(v1.UploadOngLogo))
+		api.DELETE("/ongs/:id/logo", RequireAuth(), Handle(v1.DeleteOngLogo))
 
 		// Pet
 		api.GET("/pets", Handle(v1.ReadPets))

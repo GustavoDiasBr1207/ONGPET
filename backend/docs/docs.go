@@ -421,6 +421,32 @@ const docTemplate = `{
                     "ONG"
                 ],
                 "summary": "Lista todas as ONGs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filtrar por nome",
+                        "name": "nome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtrar por e-mail",
+                        "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (default: 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -478,13 +504,49 @@ const docTemplate = `{
             }
         },
         "/api/v1/ongs/{id}": {
+            "get": {
+                "description": "Retorna uma ONG específica pelo ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ONG"
+                ],
+                "summary": "Busca uma ONG pelo ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ONG",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Ong"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "put": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Atualiza os dados de uma ONG pelo ID",
+                "description": "Atualiza os dados de uma ONG pelo ID (não atualiza logo)",
                 "consumes": [
                     "application/json"
                 ],
@@ -603,6 +665,125 @@ const docTemplate = `{
                     },
                     "500": {
                         "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/ongs/{id}/logo": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Envia uma imagem de logo para a ONG pelo ID (usando Supabase)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ONG"
+                ],
+                "summary": "Faz upload do logo de uma ONG",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ONG",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Logo da ONG",
+                        "name": "logo",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "ong": {
+                                    "$ref": "#/definitions/models.Ong"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove o logo de uma ONG pelo ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ONG"
+                ],
+                "summary": "Remove o logo de uma ONG",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ONG",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "ong": {
+                                    "$ref": "#/definitions/models.Ong"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
                         "schema": {
                             "type": "object",
                             "additionalProperties": {
@@ -1376,10 +1557,19 @@ const docTemplate = `{
         "models.Ong": {
             "type": "object",
             "properties": {
+                "area_de_atuacao": {
+                    "$ref": "#/definitions/models.OngRegiao"
+                },
                 "email": {
                     "type": "string"
                 },
                 "endereco": {
+                    "type": "string"
+                },
+                "instagram": {
+                    "type": "string"
+                },
+                "logo": {
                     "type": "string"
                 },
                 "nome": {
@@ -1395,6 +1585,21 @@ const docTemplate = `{
                     "type": "string"
                 }
             }
+        },
+        "models.OngRegiao": {
+            "type": "string",
+            "enum": [
+                "Serra",
+                "Vitória",
+                "Vila-Velha",
+                "Cariacica"
+            ],
+            "x-enum-varnames": [
+                "OngRegiaoSerra",
+                "OngRegiaoVitoria",
+                "OngRegiaoVilaVelha",
+                "OngRegiaoCariacica"
+            ]
         },
         "models.PedidoAdocaoDTO": {
             "type": "object",
@@ -1599,6 +1804,10 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Rua A"
                 },
+                "instagram": {
+                    "type": "string",
+                    "example": "@minhaong"
+                },
                 "nome": {
                     "type": "string",
                     "example": "Minha ONG"
@@ -1606,6 +1815,14 @@ const docTemplate = `{
                 "nome_responsavel": {
                     "type": "string",
                     "example": "Fulano"
+                },
+                "regiao": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.OngRegiao"
+                        }
+                    ],
+                    "example": "Serra"
                 },
                 "telefone": {
                     "type": "string",
