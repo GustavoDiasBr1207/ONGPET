@@ -19,13 +19,16 @@ import (
 
 // CreateOngInput representa o payload mínimo para criar uma ONG
 type CreateOngInput struct {
-	Email           string            `json:"email"            example:"a@b.com"`
-	Endereco        string            `json:"endereco"         example:"Rua A"`
-	Nome            string            `json:"nome"             example:"Minha ONG"`
-	NomeResponsavel string            `json:"nome_responsavel" example:"Fulano"`
-	Telefone        string            `json:"telefone"         example:"123"`
-	Instagram       string            `json:"instagram"        example:"@minhaong"`
-	Regiao          models.OngRegiao  `json:"regiao"           example:"Serra"`
+	Email           string           `json:"email"            example:"a@b.com"`
+	Endereco        string           `json:"endereco"         example:"Rua A"`
+	Nome            string           `json:"nome"             example:"Minha ONG"`
+	NomeResponsavel string           `json:"nome_responsavel" example:"Fulano"`
+	Telefone        string           `json:"telefone"         example:"123"`
+	WhatsappLink    string           `json:"whatsapp"         example:"https://wa.me/5527999999999"`
+	Descricao       string           `json:"descricao"        example:"ONG dedicada ao resgate de animais"`
+	Site            string           `json:"site"             example:"https://minhaong.org"`
+	Instagram       string           `json:"instagram"        example:"@minhaong"`
+	Regiao          models.OngRegiao `json:"regiao"           example:"Serra"`
 }
 
 type OngListResponse struct {
@@ -160,6 +163,9 @@ func CreateOng(c *gin.Context) error {
 		Email:           req.Email,
 		Endereco:        req.Endereco,
 		Telefone:        req.Telefone,
+		WhatsappLink:    req.WhatsappLink,
+		Descricao:       req.Descricao,
+		Site:            req.Site,
 		NomeResponsavel: req.NomeResponsavel,
 		Instagram:       req.Instagram,
 		Regiao:          req.Regiao,
@@ -182,8 +188,8 @@ func CreateOng(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Accept multipart/form-data
 // @Produce json
-// @Param id    path     string true "ID da ONG"
-// @Param logo  formData file   true "Logo da ONG"
+// @Param id   path     string true "ID da ONG"
+// @Param logo formData file   true "Logo da ONG"
 // @Success 200 {object} object{message=string,ong=models.Ong}
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
@@ -307,8 +313,8 @@ func DeleteOngLogo(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Accept json
 // @Produce json
-// @Param id  path string              true "ID da ONG"
-// @Param ong body v1.CreateOngInput   true "Dados para atualização"
+// @Param id  path string            true "ID da ONG"
+// @Param ong body v1.CreateOngInput true "Dados para atualização"
 // @Success 200 {object} object{message=string,ong=models.Ong}
 // @Failure 400 {object} map[string]string
 // @Failure 404 {object} map[string]string
@@ -346,6 +352,15 @@ func UpdateOng(c *gin.Context) error {
 	}
 	if req.Telefone != "" {
 		ong.Telefone = strings.TrimSpace(req.Telefone)
+	}
+	if req.WhatsappLink != "" {
+		ong.WhatsappLink = strings.TrimSpace(req.WhatsappLink)
+	}
+	if req.Descricao != "" {
+		ong.Descricao = strings.TrimSpace(req.Descricao)
+	}
+	if req.Site != "" {
+		ong.Site = strings.TrimSpace(req.Site)
 	}
 	if req.NomeResponsavel != "" {
 		ong.NomeResponsavel = strings.TrimSpace(req.NomeResponsavel)

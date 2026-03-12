@@ -17,8 +17,11 @@ type Ong struct {
 	Nome            string    `gorm:"type:text;not null" json:"nome"`
 	Endereco        string    `gorm:"type:text" json:"endereco"`
 	Telefone        string    `gorm:"type:text" json:"telefone"`
+	WhatsappLink    string    `gorm:"type:text" json:"whatsapp"`
+	Descricao       string    `gorm:"type:text" json:"descricao"`
 	NomeResponsavel string    `gorm:"type:text" json:"nome_responsavel"`
 	Email           string    `gorm:"type:text;unique" json:"email"`
+	Site			string    `gorm:"type:text" json:"site"`
 	Instagram       string    `gorm:"type:text" json:"instagram"`
 	Regiao          OngRegiao `gorm:"type:text" json:"area_de_atuacao"`
 	Logo            string    `gorm:"type:text" json:"logo"`
