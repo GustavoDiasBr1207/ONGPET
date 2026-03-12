@@ -52,6 +52,14 @@ func SetupRoutes() *gin.Engine {
 		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v1.UploadPetImages))
 		api.DELETE("/pets/:id/imagens/:imageId", RequireAuth(), Handle(v1.DeletePetImage))
 
+		// Banner
+		api.GET("/banners", Handle(v1.ReadBanners))
+		api.GET("/banners/:id", Handle(v1.ReadBanner))
+		api.POST("/banners", RequireAuth(), Handle(v1.CreateBanner))
+		api.POST("/banners/:id/imagem", RequireAuth(), Handle(v1.UploadBannerImage))
+		api.PUT("/banners/:id", RequireAuth(), Handle(v1.UpdateBanner))
+		api.DELETE("/banners/:id", RequireAuth(), Handle(v1.DeleteBanner))
+
 		// Formulário
 		api.GET("/formularios", Handle(v1.ReadFormularios))
 		api.GET("/formularios/:id", Handle(v1.ReadFormulario))
@@ -67,7 +75,7 @@ func SetupRoutes() *gin.Engine {
 		// Pedidos de adoção
 		api.GET("/pedidos-adocao", RequireAuth(), Handle(v1.ReadPedidosAdocao))
 		api.GET("/pedidos-adocao/:id", RequireAuth(), Handle(v1.ReadPedidoAdocao))
-		api.POST("/pedidos-adocao", Handle(v1.CreatePedidoAdocao)) // qualquer pessoa pode criar um pedido
+		api.POST("/pedidos-adocao", Handle(v1.CreatePedidoAdocao))
 		api.PUT("/pedidos-adocao/:id/status", RequireAuth(), Handle(v1.UpdateStatusPedidoAdocao))
 		api.DELETE("/pedidos-adocao/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
 	}
