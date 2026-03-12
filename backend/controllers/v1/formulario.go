@@ -57,14 +57,13 @@ type FormularioListResponse struct {
 // @Success 200 {object} v1.FormularioListResponse
 // @Router /api/v1/formularios [get]
 func ReadFormularios(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 	query := db.Model(&models.FormularioModelo{})
 
 	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
 		query = query.Where("ong_id = ?", ongID)
 	}
 
-	// ── Paginação ──────────────────────────────────────────────
 	pageStr  := c.DefaultQuery("page",  "1")
 	limitStr := c.DefaultQuery("limit", "10")
 
@@ -122,7 +121,7 @@ func ReadFormularios(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/formularios/{id} [get]
 func ReadFormulario(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -168,7 +167,7 @@ func CreateFormulario(c *gin.Context) error {
 		return errors.New("ong_id é obrigatório")
 	}
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -227,7 +226,7 @@ func UpdateFormulario(c *gin.Context) error {
 		return err
 	}
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -272,7 +271,7 @@ func UpdateFormulario(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/formularios/{id} [delete]
 func DeleteFormulario(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -338,7 +337,7 @@ func CreateCampoFormulario(c *gin.Context) error {
 		return errors.New("configuracao.tipo é obrigatório")
 	}
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -393,7 +392,7 @@ func UpdateCampoFormulario(c *gin.Context) error {
 		return err
 	}
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -447,7 +446,7 @@ func UpdateCampoFormulario(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/formularios/{id}/campos/{campoId} [delete]
 func DeleteCampoFormulario(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

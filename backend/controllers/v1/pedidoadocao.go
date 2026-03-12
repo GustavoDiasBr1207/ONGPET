@@ -55,33 +55,27 @@ type PedidoAdocaoListResponse struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao [get]
 func ReadPedidosAdocao(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 	query := db.Model(&models.PedidoAdocao{})
 
-	ongID := strings.TrimSpace(c.Query("ong_id"))
-	if ongID != "" {
+	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
 		query = query.Where("ong_id = ?", ongID)
 	}
-
-	petID := strings.TrimSpace(c.Query("pet_id"))
-	if petID != "" {
+	if petID := strings.TrimSpace(c.Query("pet_id")); petID != "" {
 		query = query.Where("pet_id = ?", petID)
 	}
 
-	pageStr := c.DefaultQuery("page", "1")
+	pageStr  := c.DefaultQuery("page",  "1")
 	limitStr := c.DefaultQuery("limit", "10")
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page <= 0 {
 		return errors.New("page inválido")
 	}
-
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
 		return errors.New("limit inválido")
 	}
-
-	// proteção contra requests gigantes
 	if limit > 100 {
 		limit = 100
 	}
@@ -91,7 +85,7 @@ func ReadPedidosAdocao(c *gin.Context) error {
 		return err
 	}
 
-	offset := (page - 1) * limit
+	offset     := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	var pedidos []models.PedidoAdocao
@@ -115,14 +109,12 @@ func ReadPedidosAdocao(c *gin.Context) error {
 		dtos[i] = mapPedidoToDTO(p)
 	}
 
-	response := PedidoAdocaoListResponse{
+	c.JSON(http.StatusOK, PedidoAdocaoListResponse{
 		Dados:          dtos,
 		TotalRegistros: total,
 		TotalPaginas:   totalPages,
 		ProximaPagina:  hasNext,
-	}
-
-	c.JSON(http.StatusOK, response)
+	})
 	return nil
 }
 
@@ -135,7 +127,7 @@ func ReadPedidosAdocao(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [get]
 func ReadPedidoAdocao(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -180,9 +172,8 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return errors.New("pet_id é obrigatório")
 	}
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
-	// Valida ONG
 	if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("ONG não encontrada")
@@ -190,7 +181,6 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	// Busca Pet com FormularioID
 	var pet models.Pet
 	if err := db.First(&pet, "id = ?", req.PetID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -199,7 +189,6 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	// Se o pet tem formulário vinculado, valida as respostas
 	if pet.FormularioID != nil && *pet.FormularioID != uuid.Nil {
 		var campos []models.CampoFormulario
 		if err := db.
@@ -208,28 +197,21 @@ func CreatePedidoAdocao(c *gin.Context) error {
 			Find(&campos).Error; err != nil {
 			return err
 		}
-
 		if err := validarRespostas(req.Respostas, campos); err != nil {
 			return err
 		}
 	}
 
-	// ✅ CORRIGIDO: PetID adicionado e Status setado como pendente por padrão
 	pedido := models.PedidoAdocao{
 		OngID:  req.OngID,
 		PetID:  req.PetID,
 		Status: models.PedidoAdocaoPendente,
 	}
 
-	fmt.Println("[CreatePedidoAdocao] Criando pedido com status:", pedido.Status)
-
 	if err := db.Create(&pedido).Error; err != nil {
 		return err
 	}
 
-	fmt.Println("[CreatePedidoAdocao] Pedido criado com ID:", pedido.ID, "Status:", pedido.Status)
-
-	// Cria respostas
 	for _, r := range req.Respostas {
 		if r.CampoFormularioID == uuid.Nil {
 			continue
@@ -244,14 +226,11 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		}
 	}
 
-	// Recarrega com respostas
 	if err := db.
 		Preload("Respostas.CampoFormulario").
 		First(&pedido, "id = ?", pedido.ID).Error; err != nil {
 		return err
 	}
-
-	fmt.Println("[CreatePedidoAdocao] Resposta final - Pedido ID:", pedido.ID, "Status:", pedido.Status)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Pedido de adoção criado com sucesso",
@@ -269,14 +248,13 @@ func CreatePedidoAdocao(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [delete]
 func DeletePedidoAdocao(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pedido inválido")
 	}
 
-	// Remove respostas em cascata
 	if err := db.Where("pedido_adocao_id = ?", pedidoID).
 		Delete(&models.RespostaFormulario{}).Error; err != nil {
 		return err
@@ -330,7 +308,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return errors.New("status inválido. Use: pendente, aprovado, rejeitado ou cancelado")
 	}
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -385,7 +363,6 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 		if cfg.Obrigatorio && (!respondido || strings.TrimSpace(valor) == "") {
 			return fmt.Errorf("campo '%s' é obrigatório", cfg.Label)
 		}
-
 		if !respondido || strings.TrimSpace(valor) == "" {
 			continue
 		}
@@ -423,8 +400,7 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 			}
 
 		case models.TipoCampoCheckbox:
-			selecionados := strings.Split(valor, ",")
-			for _, s := range selecionados {
+			for _, s := range strings.Split(valor, ",") {
 				s = strings.TrimSpace(s)
 				if len(cfg.Opcoes) > 0 && !contains(cfg.Opcoes, s) {
 					return fmt.Errorf("campo '%s': opção '%s' inválida", cfg.Label, s)
@@ -454,7 +430,6 @@ func mapPedidoToDTO(p models.PedidoAdocao) models.PedidoAdocaoDTO {
 	for i, r := range p.Respostas {
 		var cfg models.CampoConfiguracao
 		_ = json.Unmarshal(r.CampoFormulario.Configuracao, &cfg)
-
 		respostasDTO[i] = models.RespostaFormularioDTO{
 			ID: r.ID,
 			Campo: models.CampoFormularioDTO{
@@ -470,7 +445,7 @@ func mapPedidoToDTO(p models.PedidoAdocao) models.PedidoAdocaoDTO {
 		ID:        p.ID,
 		OngID:     p.OngID,
 		PetID:     p.PetID,
-		Status:    p.Status, 
+		Status:    p.Status,
 		CreatedAt: p.CreatedAt,
 		Respostas: respostasDTO,
 	}

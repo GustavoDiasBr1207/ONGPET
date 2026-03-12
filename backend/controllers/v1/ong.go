@@ -37,25 +37,23 @@ type OngListResponse struct {
 // @Success 200 {object} v1.OngListResponse
 // @Router /api/v1/ongs [get]
 func ReadOngs(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 	query := db.Model(&models.Ong{})
 
 	if nome := c.Query("nome"); nome != "" {
 		query = query.Where("nome ILIKE ?", "%"+nome+"%")
 	}
-
 	if email := c.Query("email"); email != "" {
 		query = query.Where("email ILIKE ?", "%"+email+"%")
 	}
 
-	pageStr := c.DefaultQuery("page", "1")
+	pageStr  := c.DefaultQuery("page",  "1")
 	limitStr := c.DefaultQuery("limit", "10")
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page <= 0 {
 		return errors.New("page inválido")
 	}
-
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
 		return errors.New("limit inválido")
@@ -66,7 +64,7 @@ func ReadOngs(c *gin.Context) error {
 		return err
 	}
 
-	offset := (page - 1) * limit
+	offset     := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	var ongs []models.Ong
@@ -89,7 +87,6 @@ func ReadOngs(c *gin.Context) error {
 		"total_paginas":   totalPages,
 		"proxima_pagina":  hasNext,
 	})
-
 	return nil
 }
 
@@ -105,19 +102,16 @@ func ReadOngs(c *gin.Context) error {
 // @Router /api/v1/ongs [post]
 func CreateOng(c *gin.Context) error {
 	var req CreateOngInput
-
 	if err := c.ShouldBindJSON(&req); err != nil {
 		return err
 	}
 
-	req.Nome = strings.TrimSpace(req.Nome)
+	req.Nome  = strings.TrimSpace(req.Nome)
 	req.Email = strings.TrimSpace(req.Email)
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
-	// Verifica duplicidade de email
-	if err := db.Where("email = ?", req.Email).
-		First(&models.Ong{}).Error; err == nil {
+	if err := db.Where("email = ?", req.Email).First(&models.Ong{}).Error; err == nil {
 		return gin.Error{
 			Err:  errors.New("email já cadastrado"),
 			Type: gin.ErrorTypePublic,
@@ -140,7 +134,6 @@ func CreateOng(c *gin.Context) error {
 		"message": "ONG criada com sucesso",
 		"ong":     ong,
 	})
-
 	return nil
 }
 
@@ -163,7 +156,7 @@ func UpdateOng(c *gin.Context) error {
 		return err
 	}
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 	id := c.Param("id")
 
 	var ong models.Ong
@@ -174,7 +167,6 @@ func UpdateOng(c *gin.Context) error {
 		return err
 	}
 
-	// Atualiza apenas campos enviados
 	if strings.TrimSpace(req.Nome) != "" {
 		ong.Nome = strings.TrimSpace(req.Nome)
 	}
@@ -199,7 +191,6 @@ func UpdateOng(c *gin.Context) error {
 		"message": "ONG atualizada com sucesso",
 		"ong":     ong,
 	})
-
 	return nil
 }
 
@@ -214,21 +205,17 @@ func UpdateOng(c *gin.Context) error {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/ongs/{id} [delete]
 func DeleteOng(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 	id := c.Param("id")
 
 	result := db.Where("id = ?", id).Delete(&models.Ong{})
 	if result.Error != nil {
 		return result.Error
 	}
-
 	if result.RowsAffected == 0 {
 		return errors.New("ONG não encontrada")
 	}
 
-	c.JSON(http.StatusOK, gin.H{
-		"message": "ONG removida com sucesso",
-	})
-
+	c.JSON(http.StatusOK, gin.H{"message": "ONG removida com sucesso"})
 	return nil
 }

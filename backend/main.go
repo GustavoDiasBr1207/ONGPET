@@ -30,9 +30,12 @@ func main() {
 	// 🔍 Debug: imprime as variáveis de ambiente
 	debugEnv()
 
+	// 🔌 Conexão única — RLS controlado pelo JWT injetado em cada sessão
 	db := database.Connect(os.Getenv("DATABASE_URL"))
+
 	utils.InitSupabase()
-		err := db.AutoMigrate(
+
+	err := db.AutoMigrate(
 		// base
 		&models.Ong{},
 
@@ -52,12 +55,9 @@ func main() {
 	if err != nil {
 		errMsg := err.Error()
 
-		// ignora APENAS erro de tabela já existente
 		if strings.Contains(errMsg, "already exists") ||
 			strings.Contains(errMsg, "42P07") {
-
 			log.Println("⚠️ Tabelas já existem, ignorando AutoMigrate")
-
 		} else {
 			log.Fatal("❌ Erro ao rodar migrations:", err)
 		}

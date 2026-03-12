@@ -1,18 +1,96 @@
 package controllers
 
 import (
+	"crypto/ecdsa"
+	"crypto/elliptic"
+	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"math/big"
 	"net/http"
 	"os"
 	"strings"
-	"time"
+	"sync"
 
 	"github.com/gin-gonic/gin"
+	"github.com/golang-jwt/jwt/v5"
 )
 
-// RequireAuth valida o token JWT usando o endpoint /auth/v1/user do Supabase
+// ─── JWKS cache ───────────────────────────────────────────────
+
+type jwksKey struct {
+	Kty string `json:"kty"`
+	Kid string `json:"kid"`
+	Crv string `json:"crv"`
+	X   string `json:"x"`
+	Y   string `json:"y"`
+}
+
+type jwksResponse struct {
+	Keys []jwksKey `json:"keys"`
+}
+
+var (
+	jwksCache map[string]*ecdsa.PublicKey
+	jwksMu    sync.RWMutex
+)
+
+func fetchJWKS(supabaseURL string) (map[string]*ecdsa.PublicKey, error) {
+	url := strings.TrimRight(supabaseURL, "/") + "/auth/v1/.well-known/jwks.json"
+	resp, err := http.Get(url)
+	if err != nil {
+		return nil, fmt.Errorf("falha ao buscar JWKS: %w", err)
+	}
+	defer resp.Body.Close()
+
+	var jwks jwksResponse
+	if err := json.NewDecoder(resp.Body).Decode(&jwks); err != nil {
+		return nil, fmt.Errorf("falha ao decodificar JWKS: %w", err)
+	}
+
+	keys := make(map[string]*ecdsa.PublicKey)
+	for _, k := range jwks.Keys {
+		if k.Kty != "EC" {
+			continue
+		}
+
+		xBytes, err := base64.RawURLEncoding.DecodeString(k.X)
+		if err != nil {
+			continue
+		}
+		yBytes, err := base64.RawURLEncoding.DecodeString(k.Y)
+		if err != nil {
+			continue
+		}
+
+		var curve elliptic.Curve
+		switch k.Crv {
+		case "P-256":
+			curve = elliptic.P256()
+		case "P-384":
+			curve = elliptic.P384()
+		case "P-521":
+			curve = elliptic.P521()
+		default:
+			continue
+		}
+
+		pub := &ecdsa.PublicKey{
+			Curve: curve,
+			X:     new(big.Int).SetBytes(xBytes),
+			Y:     new(big.Int).SetBytes(yBytes),
+		}
+		keys[k.Kid] = pub
+	}
+
+	return keys, nil
+}
+
+// RequireAuth valida o token JWT usando as chaves públicas JWKS do Supabase (ES256).
+// As chaves são buscadas uma vez e cacheadas em memória.
 func RequireAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
+		// 1. Extrai o header Authorization
 		auth := strings.TrimSpace(c.GetHeader("Authorization"))
 		if auth == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "missing authorization header"})
@@ -20,64 +98,83 @@ func RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		token := ""
-		lower := strings.ToLower(auth)
-		if strings.HasPrefix(lower, "bearer ") {
-			token = strings.TrimSpace(auth[7:])
+		// 2. Extrai o token Bearer
+		tokenStr := ""
+		if strings.HasPrefix(strings.ToLower(auth), "bearer ") {
+			tokenStr = strings.TrimSpace(auth[7:])
 		}
-
-		if token == "" {
+		if tokenStr == "" {
 			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid authorization header"})
 			c.Abort()
 			return
 		}
 
-		supabaseURL := os.Getenv("SUPABASE_URL")
-		supabaseKey := os.Getenv("SUPABASE_KEY")
-		if supabaseURL == "" || supabaseKey == "" {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "supabase configuration missing"})
-			c.Abort()
-			return
-		}
+		// 3. Obtém chaves JWKS (com cache em memória)
+		jwksMu.RLock()
+		keys := jwksCache
+		jwksMu.RUnlock()
 
-		req, err := http.NewRequest("GET", strings.TrimRight(supabaseURL, "/")+"/auth/v1/user", nil)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to create request"})
-			c.Abort()
-			return
-		}
-		req.Header.Set("Authorization", "Bearer "+token)
-		req.Header.Set("apikey", supabaseKey)
-
-		client := &http.Client{Timeout: 5 * time.Second}
-		resp, err := client.Do(req)
-		if err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to validate token"})
-			c.Abort()
-			return
-		}
-		defer resp.Body.Close()
-
-		if resp.StatusCode != http.StatusOK {
-			// try to decode error body if possible
-			var body interface{}
-			if err := json.NewDecoder(resp.Body).Decode(&body); err == nil {
-				c.JSON(resp.StatusCode, gin.H{"error": "invalid or expired token", "detail": body})
-			} else {
-				c.JSON(resp.StatusCode, gin.H{"error": "invalid or expired token"})
+		if keys == nil {
+			supabaseURL := os.Getenv("SUPABASE_URL")
+			if supabaseURL == "" {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "SUPABASE_URL not configured"})
+				c.Abort()
+				return
 			}
+			var err error
+			keys, err = fetchJWKS(supabaseURL)
+			if err != nil {
+				c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to fetch signing keys"})
+				c.Abort()
+				return
+			}
+			jwksMu.Lock()
+			jwksCache = keys
+			jwksMu.Unlock()
+		}
+
+		// 4. Valida o token com a chave correta (pelo kid no header do JWT)
+		token, err := jwt.Parse(tokenStr, func(t *jwt.Token) (interface{}, error) {
+			if _, ok := t.Method.(*jwt.SigningMethodECDSA); !ok {
+				return nil, fmt.Errorf("unexpected signing method: %v", t.Header["alg"])
+			}
+			kid, _ := t.Header["kid"].(string)
+			pub, ok := keys[kid]
+			if !ok {
+				// kid não encontrado — tenta recarregar o JWKS (chave pode ter rotacionado)
+				supabaseURL := os.Getenv("SUPABASE_URL")
+				newKeys, err := fetchJWKS(supabaseURL)
+				if err != nil {
+					return nil, fmt.Errorf("falha ao recarregar JWKS: %w", err)
+				}
+				jwksMu.Lock()
+				jwksCache = newKeys
+				jwksMu.Unlock()
+				pub, ok = newKeys[kid]
+				if !ok {
+					return nil, fmt.Errorf("chave não encontrada para kid: %s", kid)
+				}
+			}
+			return pub, nil
+		})
+		if err != nil || !token.Valid {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid or expired token"})
 			c.Abort()
 			return
 		}
 
-		var user map[string]interface{}
-		if err := json.NewDecoder(resp.Body).Decode(&user); err != nil {
-			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to parse user response"})
+		// 5. Extrai as claims e salva no context
+		claims, ok := token.Claims.(jwt.MapClaims)
+		if !ok {
+			c.JSON(http.StatusUnauthorized, gin.H{"error": "invalid token claims"})
 			c.Abort()
 			return
 		}
 
-		c.Set("user", user)
+		c.Set("user_id", claims["sub"]) // UUID do usuário
+		c.Set("token", tokenStr)         // token raw → usado nas queries para ativar RLS
+		c.Set("claims", claims)           // claims completas
+
 		c.Next()
 	}
 }
