@@ -12,6 +12,7 @@ import (
 
 	"ongpet/database"
 	"ongpet/models"
+	"ongpet/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -150,14 +151,15 @@ func ReadPedidoAdocao(c *gin.Context) error {
 
 // @Summary Cria um novo Pedido de Adoção
 // @Description Cria o pedido com as respostas ao formulário vinculado ao Pet.
-// @Description As respostas são validadas contra a configuração de cada campo.
+// @Description Para campos do tipo 'imagem', envie o campo_formulario_id com valor vazio ("").
+// @Description Após criar o pedido, use POST /pedidos-adocao/:pedidoId/respostas/:respostaId/imagem
+// @Description para enviar a imagem de cada campo do tipo imagem.
 // @Tags PedidoAdocao
 // @Accept json
 // @Produce json
 // @Param pedido body v1.CreatePedidoAdocaoInput true "Novo Pedido"
 // @Success 201 {object} models.PedidoAdocaoDTO
 // @Failure 400 {object} map[string]string
-// @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao [post]
 func CreatePedidoAdocao(c *gin.Context) error {
 	var req CreatePedidoAdocaoInput
@@ -172,7 +174,7 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return errors.New("pet_id é obrigatório")
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
+	db := database.GetDB() // público — sem token, sem RLS
 
 	if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -219,7 +221,7 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		resposta := models.RespostaFormulario{
 			PedidoAdocaoID:    pedido.ID,
 			CampoFormularioID: r.CampoFormularioID,
-			Valor:             r.Valor,
+			Valor:             r.Valor, // "" para campos de imagem
 		}
 		if err := db.Create(&resposta).Error; err != nil {
 			return err
@@ -269,6 +271,107 @@ func DeletePedidoAdocao(c *gin.Context) error {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Pedido de adoção removido com sucesso"})
+	return nil
+}
+
+// ─────────────────────────────────────────────────────────────
+// UPLOAD DE IMAGEM EM RESPOSTA DE CAMPO TIPO "imagem"
+// ─────────────────────────────────────────────────────────────
+
+// @Summary Faz upload de imagem em uma resposta de campo do tipo 'imagem'
+// @Description Endpoint público (sem auth). Após criar o pedido, chame este endpoint
+// @Description para cada campo do tipo 'imagem'. A URL gerada é salva em RespostaFormulario.Valor.
+// @Description Se a resposta já possuía uma imagem anterior, ela é removida do storage antes do novo upload.
+// @Tags PedidoAdocao
+// @Accept multipart/form-data
+// @Produce json
+// @Param pedidoId   path     string true "ID do Pedido de Adoção"
+// @Param respostaId path     string true "ID da Resposta (campo do tipo imagem)"
+// @Param imagem     formData file   true "Arquivo de imagem"
+// @Success 200 {object} object{message=string,resposta=models.RespostaFormulario}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/pedidos-adocao/{pedidoId}/respostas/{respostaId}/imagem [post]
+func UploadRespostaImagem(c *gin.Context) error {
+	db := database.GetDB() // público — sem token, sem RLS
+
+	pedidoID, err := uuid.Parse(c.Param("pedidoId"))
+	if err != nil {
+		return errors.New("ID do pedido inválido")
+	}
+
+	respostaID, err := uuid.Parse(c.Param("respostaId"))
+	if err != nil {
+		return errors.New("ID da resposta inválido")
+	}
+
+	// Carrega a resposta garantindo que pertence ao pedido informado
+	var resposta models.RespostaFormulario
+	if err := db.
+		Preload("CampoFormulario").
+		First(&resposta, "id = ? AND pedido_adocao_id = ?", respostaID, pedidoID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Resposta não encontrada")
+		}
+		return err
+	}
+
+	// Garante que o campo é do tipo imagem
+	var cfg models.CampoConfiguracao
+	if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
+		return errors.New("erro ao ler configuração do campo")
+	}
+	if cfg.Tipo != models.TipoCampoImagem {
+		return fmt.Errorf("campo '%s' não é do tipo imagem", cfg.Label)
+	}
+
+	file, err := c.FormFile("imagem")
+	if err != nil {
+		return errors.New("nenhuma imagem enviada")
+	}
+
+	if !utils.IsValidImage(file) {
+		return errors.New("tipo de imagem inválido")
+	}
+
+	// Remove imagem anterior do storage (best-effort), igual ao DeletePetImage
+	if resposta.Valor != "" {
+		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor); pathErr == nil {
+			if delErr := utils.DeleteFile(objectPath); delErr != nil {
+				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
+			}
+		} else {
+			fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
+		}
+	}
+
+	optimized, err := utils.ResizeAndCompressImage(file, 1280, 70)
+	if err != nil {
+		return err
+	}
+
+	// Pasta: pedidoID / nome do campo / posição 1 (única por resposta)
+	url, err := utils.UploadOptimizedFile(
+		optimized.Buffer,
+		optimized.ContentType,
+		optimized.Extension,
+		pedidoID.String(),   // pasta raiz = ID do pedido
+		cfg.Label,           // subpasta = label do campo ("Foto da casa", etc.)
+		1,                   // posição fixa — uma imagem por resposta
+	)
+	if err != nil {
+		return err
+	}
+
+	resposta.Valor = url
+	if err := db.Save(&resposta).Error; err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Imagem enviada com sucesso",
+		"resposta": resposta,
+	})
 	return nil
 }
 
@@ -359,6 +462,15 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 		}
 
 		valor, respondido := respostaMap[campo.ID]
+
+		// Campo do tipo imagem: o valor chega vazio e será preenchido via upload
+		// separado. Só verifica se o campo foi incluído na lista (obrigatório).
+		if cfg.Tipo == models.TipoCampoImagem {
+			if cfg.Obrigatorio && !respondido {
+				return fmt.Errorf("campo '%s' é obrigatório — inclua-o nas respostas com valor vazio e envie a imagem via POST .../respostas/:id/imagem", cfg.Label)
+			}
+			continue
+		}
 
 		if cfg.Obrigatorio && (!respondido || strings.TrimSpace(valor) == "") {
 			return fmt.Errorf("campo '%s' é obrigatório", cfg.Label)

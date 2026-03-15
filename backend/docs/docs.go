@@ -411,6 +411,124 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/formularios/{id}/imagem": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Substitui a imagem existente (se houver) e armazena a nova via Supabase",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Faz upload da imagem de capa de um Formulário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Imagem de capa",
+                        "name": "imagem",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "formulario": {
+                                    "$ref": "#/definitions/models.FormularioModelo"
+                                },
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Remove a imagem de capa de um Formulário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "formulario": {
+                                    "$ref": "#/definitions/models.FormularioModelo"
+                                },
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ongs": {
             "get": {
                 "description": "Retorna todas as ONGs cadastradas",
@@ -844,12 +962,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Cria o pedido com as respostas ao formulário vinculado ao Pet.\nAs respostas são validadas contra a configuração de cada campo.",
+                "description": "Cria o pedido com as respostas ao formulário vinculado ao Pet.\nPara campos do tipo 'imagem', envie o campo_formulario_id com valor vazio (\"\").\nApós criar o pedido, use POST /pedidos-adocao/:pedidoId/respostas/:respostaId/imagem\npara enviar a imagem de cada campo do tipo imagem.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1018,6 +1131,78 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.PedidoAdocaoDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pedidos-adocao/{pedidoId}/respostas/{respostaId}/imagem": {
+            "post": {
+                "description": "Endpoint público (sem auth). Após criar o pedido, chame este endpoint\npara cada campo do tipo 'imagem'. A URL gerada é salva em RespostaFormulario.Valor.\nSe a resposta já possuía uma imagem anterior, ela é removida do storage antes do novo upload.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PedidoAdocao"
+                ],
+                "summary": "Faz upload de imagem em uma resposta de campo do tipo 'imagem'",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Pedido de Adoção",
+                        "name": "pedidoId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID da Resposta (campo do tipo imagem)",
+                        "name": "respostaId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Arquivo de imagem",
+                        "name": "imagem",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "resposta": {
+                                    "$ref": "#/definitions/models.RespostaFormulario"
+                                }
+                            }
                         }
                     },
                     "400": {
@@ -1433,7 +1618,6 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "descricao": {
-                    "description": "texto de ajuda abaixo do campo",
                     "type": "string"
                 },
                 "label": {
@@ -1441,19 +1625,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "max": {
-                    "description": "max de caracteres (texto) ou valor (numero)",
                     "type": "integer"
                 },
                 "max_valor": {
-                    "description": "para tipo numero",
                     "type": "number"
                 },
                 "min": {
-                    "description": "min de caracteres (texto) ou valor (numero)",
                     "type": "integer"
                 },
                 "min_valor": {
-                    "description": "para tipo numero",
                     "type": "number"
                 },
                 "obrigatorio": {
@@ -1468,7 +1648,6 @@ const docTemplate = `{
                     }
                 },
                 "placeholder": {
-                    "description": "ex: \"Digite seu nome\"",
                     "type": "string"
                 },
                 "regex": {
@@ -1494,7 +1673,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "formulario_modelo_id": {
-                    "description": "ponteiro = nullable",
                     "type": "string"
                 },
                 "id": {
@@ -1541,6 +1719,9 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "id": {
+                    "type": "string"
+                },
+                "imagem_url": {
                     "type": "string"
                 },
                 "nome": {
@@ -1732,6 +1913,30 @@ const docTemplate = `{
                 "PetDraft"
             ]
         },
+        "models.RespostaFormulario": {
+            "type": "object",
+            "properties": {
+                "campo_formulario_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "pedido_adocao_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "valor": {
+                    "description": "Para tipo \"imagem\": começa vazio (\"\") e é preenchido via\nPOST /pedidos-adocao/:pedidoId/respostas/:respostaId/imagem",
+                    "type": "string"
+                }
+            }
+        },
         "models.RespostaFormularioDTO": {
             "type": "object",
             "properties": {
@@ -1757,7 +1962,23 @@ const docTemplate = `{
                 "textarea",
                 "email",
                 "telefone",
-                "data"
+                "data",
+                "imagem"
+            ],
+            "x-enum-comments": {
+                "TipoCampoImagem": "adotante envia imagem como resposta"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "adotante envia imagem como resposta"
             ],
             "x-enum-varnames": [
                 "TipoCampoTexto",
@@ -1768,7 +1989,8 @@ const docTemplate = `{
                 "TipoCampoTextarea",
                 "TipoCampoEmail",
                 "TipoCampoTelefone",
-                "TipoCampoData"
+                "TipoCampoData",
+                "TipoCampoImagem"
             ]
         },
         "v1.CreateCampoInput": {
