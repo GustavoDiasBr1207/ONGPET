@@ -61,6 +61,8 @@ func SetupRoutes() *gin.Engine {
 		api.POST("/formularios", RequireAuth(), Handle(v1.CreateFormulario))
 		api.PUT("/formularios/:id", RequireAuth(), Handle(v1.UpdateFormulario))
 		api.DELETE("/formularios/:id", RequireAuth(), Handle(v1.DeleteFormulario))
+		api.POST("/formularios/:id/imagem", RequireAuth(), Handle(v1.UploadFormularioImagem))   // imagem de capa do formulário
+		api.DELETE("/formularios/:id/imagem", RequireAuth(), Handle(v1.DeleteFormularioImagem)) // remove imagem de capa
 
 		// Campos do Formulário
 		api.POST("/formularios/:id/campos", RequireAuth(), Handle(v1.CreateCampoFormulario))
@@ -70,9 +72,10 @@ func SetupRoutes() *gin.Engine {
 		// Pedidos de adoção
 		api.GET("/pedidos-adocao", RequireAuth(), Handle(v1.ReadPedidosAdocao))
 		api.GET("/pedidos-adocao/:id", RequireAuth(), Handle(v1.ReadPedidoAdocao))
-		api.POST("/pedidos-adocao", Handle(v1.CreatePedidoAdocao)) // qualquer pessoa pode criar um pedido
+		api.POST("/pedidos-adocao", Handle(v1.CreatePedidoAdocao))                                                          // qualquer pessoa pode criar um pedido
 		api.PUT("/pedidos-adocao/:id/status", RequireAuth(), Handle(v1.UpdateStatusPedidoAdocao))
 		api.DELETE("/pedidos-adocao/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
+		api.POST("/pedidos-adocao/:pedidoId/respostas/:respostaId/imagem", Handle(v1.UploadRespostaImagem)) // público — adotante envia imagem de campo
 	}
 
 	// 404
