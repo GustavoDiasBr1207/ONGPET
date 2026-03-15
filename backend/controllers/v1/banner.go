@@ -396,6 +396,61 @@ func UpdateBanner(c *gin.Context) error {
 }
 
 // ─────────────────────────────────────────────────────────────
+// DELETE IMAGEM DO BANNER
+// ─────────────────────────────────────────────────────────────
+
+// @Summary Remove a imagem de um Banner
+// @Description Remove a imagem do storage e limpa o image_url do Banner
+// @Tags Banner
+// @Security ApiKeyAuth
+// @Produce json
+// @Param id path string true "ID do Banner"
+// @Success 200 {object} object{message=string,banner=models.Banner}
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/banners/{id}/imagem [delete]
+func DeleteBannerImage(c *gin.Context) error {
+	db := database.GetDB()
+
+	bannerID, err := uuid.Parse(c.Param("id"))
+	if err != nil {
+		return errors.New("ID do banner inválido")
+	}
+
+	var banner models.Banner
+	if err := db.First(&banner, "id = ?", bannerID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Banner não encontrado")
+		}
+		return err
+	}
+
+	if banner.ImageURL == "" {
+		return errors.New("este banner não possui imagem")
+	}
+
+	if objectPath, pathErr := utils.ExtractObjectPath(banner.ImageURL); pathErr == nil {
+		if err := utils.DeleteFile(objectPath); err != nil {
+			fmt.Printf("⚠️ Aviso: não foi possível deletar imagem do storage: %s\n", err.Error())
+		}
+	} else {
+		fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
+	}
+
+	banner.ImageURL = ""
+
+	if err := db.Save(&banner).Error; err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message": "Imagem removida com sucesso",
+		"banner":  banner,
+	})
+
+	return nil
+}
+
+// ─────────────────────────────────────────────────────────────
 // DELETE BANNER
 // ─────────────────────────────────────────────────────────────
 

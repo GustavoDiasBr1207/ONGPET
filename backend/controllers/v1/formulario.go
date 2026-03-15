@@ -65,7 +65,7 @@ func ReadFormularios(c *gin.Context) error {
 	}
 
 	// ── Paginação ──────────────────────────────────────────────
-	pageStr  := c.DefaultQuery("page",  "1")
+	pageStr := c.DefaultQuery("page", "1")
 	limitStr := c.DefaultQuery("limit", "10")
 
 	page, err := strconv.Atoi(pageStr)
@@ -83,7 +83,7 @@ func ReadFormularios(c *gin.Context) error {
 		return err
 	}
 
-	offset     := (page - 1) * limit
+	offset := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	var formularios []models.FormularioModelo

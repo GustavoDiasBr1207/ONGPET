@@ -57,6 +57,7 @@ func SetupRoutes() *gin.Engine {
 		api.GET("/banners/:id", Handle(v1.ReadBanner))
 		api.POST("/banners", RequireAuth(), Handle(v1.CreateBanner))
 		api.POST("/banners/:id/imagem", RequireAuth(), Handle(v1.UploadBannerImage))
+		api.DELETE("/banners/:id/imagem", RequireAuth(), Handle(v1.DeleteBannerImage))
 		api.PUT("/banners/:id", RequireAuth(), Handle(v1.UpdateBanner))
 		api.DELETE("/banners/:id", RequireAuth(), Handle(v1.DeleteBanner))
 
