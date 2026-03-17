@@ -22,6 +22,7 @@ func SetupRoutes() *gin.Engine {
 			"https://adote-serra.vercel.app",
 			"http://localhost:3000",
 			"http://localhost:5173",
+			"https://ongpet-n9z9.onrender.com",
 		},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
