@@ -12,6 +12,7 @@ import (
 
 	"ongpet/database"
 	"ongpet/models"
+	"ongpet/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -55,33 +56,27 @@ type PedidoAdocaoListResponse struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao [get]
 func ReadPedidosAdocao(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 	query := db.Model(&models.PedidoAdocao{})
 
-	ongID := strings.TrimSpace(c.Query("ong_id"))
-	if ongID != "" {
+	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
 		query = query.Where("ong_id = ?", ongID)
 	}
-
-	petID := strings.TrimSpace(c.Query("pet_id"))
-	if petID != "" {
+	if petID := strings.TrimSpace(c.Query("pet_id")); petID != "" {
 		query = query.Where("pet_id = ?", petID)
 	}
 
-	pageStr := c.DefaultQuery("page", "1")
+	pageStr  := c.DefaultQuery("page",  "1")
 	limitStr := c.DefaultQuery("limit", "10")
 
 	page, err := strconv.Atoi(pageStr)
 	if err != nil || page <= 0 {
 		return errors.New("page inválido")
 	}
-
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
 		return errors.New("limit inválido")
 	}
-
-	// proteção contra requests gigantes
 	if limit > 100 {
 		limit = 100
 	}
@@ -91,7 +86,7 @@ func ReadPedidosAdocao(c *gin.Context) error {
 		return err
 	}
 
-	offset := (page - 1) * limit
+	offset     := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	var pedidos []models.PedidoAdocao
@@ -115,14 +110,12 @@ func ReadPedidosAdocao(c *gin.Context) error {
 		dtos[i] = mapPedidoToDTO(p)
 	}
 
-	response := PedidoAdocaoListResponse{
+	c.JSON(http.StatusOK, PedidoAdocaoListResponse{
 		Dados:          dtos,
 		TotalRegistros: total,
 		TotalPaginas:   totalPages,
 		ProximaPagina:  hasNext,
-	}
-
-	c.JSON(http.StatusOK, response)
+	})
 	return nil
 }
 
@@ -135,7 +128,7 @@ func ReadPedidosAdocao(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [get]
 func ReadPedidoAdocao(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -158,14 +151,15 @@ func ReadPedidoAdocao(c *gin.Context) error {
 
 // @Summary Cria um novo Pedido de Adoção
 // @Description Cria o pedido com as respostas ao formulário vinculado ao Pet.
-// @Description As respostas são validadas contra a configuração de cada campo.
+// @Description Para campos do tipo 'imagem', envie o campo_formulario_id com valor vazio ("").
+// @Description Após criar o pedido, use POST /pedidos-adocao/:pedidoId/respostas/:respostaId/imagem
+// @Description para enviar a imagem de cada campo do tipo imagem.
 // @Tags PedidoAdocao
 // @Accept json
 // @Produce json
 // @Param pedido body v1.CreatePedidoAdocaoInput true "Novo Pedido"
 // @Success 201 {object} models.PedidoAdocaoDTO
 // @Failure 400 {object} map[string]string
-// @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao [post]
 func CreatePedidoAdocao(c *gin.Context) error {
 	var req CreatePedidoAdocaoInput
@@ -180,9 +174,8 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return errors.New("pet_id é obrigatório")
 	}
 
-	db := database.GetDB()
+	db := database.GetDB() // público — sem token, sem RLS
 
-	// Valida ONG
 	if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("ONG não encontrada")
@@ -190,7 +183,6 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	// Busca Pet com FormularioID
 	var pet models.Pet
 	if err := db.First(&pet, "id = ?", req.PetID).Error; err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
@@ -199,7 +191,6 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	// Se o pet tem formulário vinculado, valida as respostas
 	if pet.FormularioID != nil && *pet.FormularioID != uuid.Nil {
 		var campos []models.CampoFormulario
 		if err := db.
@@ -208,28 +199,21 @@ func CreatePedidoAdocao(c *gin.Context) error {
 			Find(&campos).Error; err != nil {
 			return err
 		}
-
 		if err := validarRespostas(req.Respostas, campos); err != nil {
 			return err
 		}
 	}
 
-	// ✅ CORRIGIDO: PetID adicionado e Status setado como pendente por padrão
 	pedido := models.PedidoAdocao{
 		OngID:  req.OngID,
 		PetID:  req.PetID,
 		Status: models.PedidoAdocaoPendente,
 	}
 
-	fmt.Println("[CreatePedidoAdocao] Criando pedido com status:", pedido.Status)
-
 	if err := db.Create(&pedido).Error; err != nil {
 		return err
 	}
 
-	fmt.Println("[CreatePedidoAdocao] Pedido criado com ID:", pedido.ID, "Status:", pedido.Status)
-
-	// Cria respostas
 	for _, r := range req.Respostas {
 		if r.CampoFormularioID == uuid.Nil {
 			continue
@@ -237,21 +221,18 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		resposta := models.RespostaFormulario{
 			PedidoAdocaoID:    pedido.ID,
 			CampoFormularioID: r.CampoFormularioID,
-			Valor:             r.Valor,
+			Valor:             r.Valor, // "" para campos de imagem
 		}
 		if err := db.Create(&resposta).Error; err != nil {
 			return err
 		}
 	}
 
-	// Recarrega com respostas
 	if err := db.
 		Preload("Respostas.CampoFormulario").
 		First(&pedido, "id = ?", pedido.ID).Error; err != nil {
 		return err
 	}
-
-	fmt.Println("[CreatePedidoAdocao] Resposta final - Pedido ID:", pedido.ID, "Status:", pedido.Status)
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Pedido de adoção criado com sucesso",
@@ -269,14 +250,13 @@ func CreatePedidoAdocao(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [delete]
 func DeletePedidoAdocao(c *gin.Context) error {
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pedido inválido")
 	}
 
-	// Remove respostas em cascata
 	if err := db.Where("pedido_adocao_id = ?", pedidoID).
 		Delete(&models.RespostaFormulario{}).Error; err != nil {
 		return err
@@ -291,6 +271,107 @@ func DeletePedidoAdocao(c *gin.Context) error {
 	}
 
 	c.JSON(http.StatusOK, gin.H{"message": "Pedido de adoção removido com sucesso"})
+	return nil
+}
+
+// ─────────────────────────────────────────────────────────────
+// UPLOAD DE IMAGEM EM RESPOSTA DE CAMPO TIPO "imagem"
+// ─────────────────────────────────────────────────────────────
+
+// @Summary Faz upload de imagem em uma resposta de campo do tipo 'imagem'
+// @Description Endpoint público (sem auth). Após criar o pedido, chame este endpoint
+// @Description para cada campo do tipo 'imagem'. A URL gerada é salva em RespostaFormulario.Valor.
+// @Description Se a resposta já possuía uma imagem anterior, ela é removida do storage antes do novo upload.
+// @Tags PedidoAdocao
+// @Accept multipart/form-data
+// @Produce json
+// @Param pedidoId   path     string true "ID do Pedido de Adoção"
+// @Param respostaId path     string true "ID da Resposta (campo do tipo imagem)"
+// @Param imagem     formData file   true "Arquivo de imagem"
+// @Success 200 {object} object{message=string,resposta=models.RespostaFormulario}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Router /api/v1/pedidos-adocao/{pedidoId}/respostas/{respostaId}/imagem [post]
+func UploadRespostaImagem(c *gin.Context) error {
+	db := database.GetDB() // público — sem token, sem RLS
+
+	pedidoID, err := uuid.Parse(c.Param("pedidoId"))
+	if err != nil {
+		return errors.New("ID do pedido inválido")
+	}
+
+	respostaID, err := uuid.Parse(c.Param("respostaId"))
+	if err != nil {
+		return errors.New("ID da resposta inválido")
+	}
+
+	// Carrega a resposta garantindo que pertence ao pedido informado
+	var resposta models.RespostaFormulario
+	if err := db.
+		Preload("CampoFormulario").
+		First(&resposta, "id = ? AND pedido_adocao_id = ?", respostaID, pedidoID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("Resposta não encontrada")
+		}
+		return err
+	}
+
+	// Garante que o campo é do tipo imagem
+	var cfg models.CampoConfiguracao
+	if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
+		return errors.New("erro ao ler configuração do campo")
+	}
+	if cfg.Tipo != models.TipoCampoImagem {
+		return fmt.Errorf("campo '%s' não é do tipo imagem", cfg.Label)
+	}
+
+	file, err := c.FormFile("imagem")
+	if err != nil {
+		return errors.New("nenhuma imagem enviada")
+	}
+
+	if !utils.IsValidImage(file) {
+		return errors.New("tipo de imagem inválido")
+	}
+
+	// Remove imagem anterior do storage (best-effort), igual ao DeletePetImage
+	if resposta.Valor != "" {
+		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor); pathErr == nil {
+			if delErr := utils.DeleteFile(objectPath); delErr != nil {
+				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
+			}
+		} else {
+			fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
+		}
+	}
+
+	optimized, err := utils.ResizeAndCompressImage(file, 1280, 70)
+	if err != nil {
+		return err
+	}
+
+	// Pasta: pedidoID / nome do campo / posição 1 (única por resposta)
+	url, err := utils.UploadOptimizedFile(
+		optimized.Buffer,
+		optimized.ContentType,
+		optimized.Extension,
+		pedidoID.String(),   // pasta raiz = ID do pedido
+		cfg.Label,           // subpasta = label do campo ("Foto da casa", etc.)
+		1,                   // posição fixa — uma imagem por resposta
+	)
+	if err != nil {
+		return err
+	}
+
+	resposta.Valor = url
+	if err := db.Save(&resposta).Error; err != nil {
+		return err
+	}
+
+	c.JSON(http.StatusOK, gin.H{
+		"message":  "Imagem enviada com sucesso",
+		"resposta": resposta,
+	})
 	return nil
 }
 
@@ -330,7 +411,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return errors.New("status inválido. Use: pendente, aprovado, rejeitado ou cancelado")
 	}
 
-	db := database.GetDB()
+	db := database.GetUserDB(c.GetString("token"))
 
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -382,10 +463,18 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 
 		valor, respondido := respostaMap[campo.ID]
 
+		// Campo do tipo imagem: o valor chega vazio e será preenchido via upload
+		// separado. Só verifica se o campo foi incluído na lista (obrigatório).
+		if cfg.Tipo == models.TipoCampoImagem {
+			if cfg.Obrigatorio && !respondido {
+				return fmt.Errorf("campo '%s' é obrigatório — inclua-o nas respostas com valor vazio e envie a imagem via POST .../respostas/:id/imagem", cfg.Label)
+			}
+			continue
+		}
+
 		if cfg.Obrigatorio && (!respondido || strings.TrimSpace(valor) == "") {
 			return fmt.Errorf("campo '%s' é obrigatório", cfg.Label)
 		}
-
 		if !respondido || strings.TrimSpace(valor) == "" {
 			continue
 		}
@@ -423,8 +512,7 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 			}
 
 		case models.TipoCampoCheckbox:
-			selecionados := strings.Split(valor, ",")
-			for _, s := range selecionados {
+			for _, s := range strings.Split(valor, ",") {
 				s = strings.TrimSpace(s)
 				if len(cfg.Opcoes) > 0 && !contains(cfg.Opcoes, s) {
 					return fmt.Errorf("campo '%s': opção '%s' inválida", cfg.Label, s)
@@ -454,7 +542,6 @@ func mapPedidoToDTO(p models.PedidoAdocao) models.PedidoAdocaoDTO {
 	for i, r := range p.Respostas {
 		var cfg models.CampoConfiguracao
 		_ = json.Unmarshal(r.CampoFormulario.Configuracao, &cfg)
-
 		respostasDTO[i] = models.RespostaFormularioDTO{
 			ID: r.ID,
 			Campo: models.CampoFormularioDTO{
@@ -470,7 +557,7 @@ func mapPedidoToDTO(p models.PedidoAdocao) models.PedidoAdocaoDTO {
 		ID:        p.ID,
 		OngID:     p.OngID,
 		PetID:     p.PetID,
-		Status:    p.Status, 
+		Status:    p.Status,
 		CreatedAt: p.CreatedAt,
 		Respostas: respostasDTO,
 	}

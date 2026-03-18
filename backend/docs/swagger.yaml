@@ -28,22 +28,17 @@ definitions:
       ativo:
         type: boolean
       descricao:
-        description: texto de ajuda abaixo do campo
         type: string
       label:
         description: Apresentação
         type: string
       max:
-        description: max de caracteres (texto) ou valor (numero)
         type: integer
       max_valor:
-        description: para tipo numero
         type: number
       min:
-        description: min de caracteres (texto) ou valor (numero)
         type: integer
       min_valor:
-        description: para tipo numero
         type: number
       obrigatorio:
         description: Validações
@@ -54,7 +49,6 @@ definitions:
           type: string
         type: array
       placeholder:
-        description: 'ex: "Digite seu nome"'
         type: string
       regex:
         type: string
@@ -70,7 +64,6 @@ definitions:
       created_at:
         type: string
       formulario_modelo_id:
-        description: ponteiro = nullable
         type: string
       id:
         type: string
@@ -102,6 +95,8 @@ definitions:
         type: string
       id:
         type: string
+      imagem_url:
+        type: string
       nome:
         type: string
       ong_id:
@@ -111,19 +106,43 @@ definitions:
     type: object
   models.Ong:
     properties:
+      area_de_atuacao:
+        $ref: '#/definitions/models.OngRegiao'
+      descricao:
+        type: string
       email:
         type: string
       endereco:
+        type: string
+      instagram:
+        type: string
+      logo:
         type: string
       nome:
         type: string
       nome_responsavel:
         type: string
+      site:
+        type: string
       telefone:
         type: string
       user_id:
         type: string
+      whatsapp:
+        type: string
     type: object
+  models.OngRegiao:
+    enum:
+    - Serra
+    - Vitória
+    - Vila-Velha
+    - Cariacica
+    type: string
+    x-enum-varnames:
+    - OngRegiaoSerra
+    - OngRegiaoVitoria
+    - OngRegiaoVilaVelha
+    - OngRegiaoCariacica
   models.PedidoAdocaoDTO:
     properties:
       created_at:
@@ -208,6 +227,24 @@ definitions:
     - PetAdopted
     - PetAvailable
     - PetDraft
+  models.RespostaFormulario:
+    properties:
+      campo_formulario_id:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      pedido_adocao_id:
+        type: string
+      updated_at:
+        type: string
+      valor:
+        description: |-
+          Para tipo "imagem": começa vazio ("") e é preenchido via
+          POST /pedidos-adocao/:pedidoId/respostas/:respostaId/imagem
+        type: string
+    type: object
   models.RespostaFormularioDTO:
     properties:
       campo:
@@ -228,7 +265,21 @@ definitions:
     - email
     - telefone
     - data
+    - imagem
     type: string
+    x-enum-comments:
+      TipoCampoImagem: adotante envia imagem como resposta
+    x-enum-descriptions:
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - ""
+    - adotante envia imagem como resposta
     x-enum-varnames:
     - TipoCampoTexto
     - TipoCampoNumero
@@ -239,6 +290,7 @@ definitions:
     - TipoCampoEmail
     - TipoCampoTelefone
     - TipoCampoData
+<<<<<<< HEAD
   v1.BannerListResponse:
     properties:
       dados:
@@ -267,6 +319,9 @@ definitions:
       title:
         type: string
     type: object
+=======
+    - TipoCampoImagem
+>>>>>>> origin/dev
   v1.CreateCampoInput:
     properties:
       configuracao:
@@ -289,11 +344,17 @@ definitions:
     type: object
   v1.CreateOngInput:
     properties:
+      descricao:
+        example: ONG dedicada ao resgate de animais
+        type: string
       email:
         example: a@b.com
         type: string
       endereco:
         example: Rua A
+        type: string
+      instagram:
+        example: '@minhaong'
         type: string
       nome:
         example: Minha ONG
@@ -301,8 +362,18 @@ definitions:
       nome_responsavel:
         example: Fulano
         type: string
+      regiao:
+        allOf:
+        - $ref: '#/definitions/models.OngRegiao'
+        example: Serra
+      site:
+        example: https://minhaong.org
+        type: string
       telefone:
         example: "123"
+        type: string
+      whatsapp:
+        example: https://wa.me/5527999999999
         type: string
     type: object
   v1.CreatePedidoAdocaoInput:
@@ -887,9 +958,102 @@ paths:
       summary: Atualiza um Campo do Formulário
       tags:
       - FormularioModelo
+  /api/v1/formularios/{id}/imagem:
+    delete:
+      parameters:
+      - description: ID do Formulário
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              formulario:
+                $ref: '#/definitions/models.FormularioModelo'
+              message:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove a imagem de capa de um Formulário
+      tags:
+      - FormularioModelo
+    post:
+      consumes:
+      - multipart/form-data
+      description: Substitui a imagem existente (se houver) e armazena a nova via
+        Supabase
+      parameters:
+      - description: ID do Formulário
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Imagem de capa
+        in: formData
+        name: imagem
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              formulario:
+                $ref: '#/definitions/models.FormularioModelo'
+              message:
+                type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Faz upload da imagem de capa de um Formulário
+      tags:
+      - FormularioModelo
   /api/v1/ongs:
     get:
       description: Retorna todas as ONGs cadastradas
+      parameters:
+      - description: Filtrar por nome
+        in: query
+        name: nome
+        type: string
+      - description: Filtrar por e-mail
+        in: query
+        name: email
+        type: string
+      - description: 'Página (default: 1)'
+        in: query
+        name: page
+        type: integer
+      - description: 'Itens por página (default: 10)'
+        in: query
+        name: limit
+        type: integer
       produces:
       - application/json
       responses:
@@ -965,10 +1129,34 @@ paths:
       summary: Remove uma ONG
       tags:
       - ONG
+    get:
+      description: Retorna uma ONG específica pelo ID
+      parameters:
+      - description: ID da ONG
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/models.Ong'
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Busca uma ONG pelo ID
+      tags:
+      - ONG
     put:
       consumes:
       - application/json
-      description: Atualiza os dados de uma ONG pelo ID
+      description: Atualiza os dados de uma ONG pelo ID (não atualiza logo)
       parameters:
       - description: ID da ONG
         in: path
@@ -1016,6 +1204,82 @@ paths:
       summary: Atualiza uma ONG existente
       tags:
       - ONG
+  /api/v1/ongs/{id}/logo:
+    delete:
+      description: Remove o logo de uma ONG pelo ID
+      parameters:
+      - description: ID da ONG
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              ong:
+                $ref: '#/definitions/models.Ong'
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove o logo de uma ONG
+      tags:
+      - ONG
+    post:
+      consumes:
+      - multipart/form-data
+      description: Envia uma imagem de logo para a ONG pelo ID (usando Supabase)
+      parameters:
+      - description: ID da ONG
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Logo da ONG
+        in: formData
+        name: logo
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              ong:
+                $ref: '#/definitions/models.Ong'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Faz upload do logo de uma ONG
+      tags:
+      - ONG
   /api/v1/pedidos-adocao:
     get:
       parameters:
@@ -1052,7 +1316,9 @@ paths:
       - application/json
       description: |-
         Cria o pedido com as respostas ao formulário vinculado ao Pet.
-        As respostas são validadas contra a configuração de cada campo.
+        Para campos do tipo 'imagem', envie o campo_formulario_id com valor vazio ("").
+        Após criar o pedido, use POST /pedidos-adocao/:pedidoId/respostas/:respostaId/imagem
+        para enviar a imagem de cada campo do tipo imagem.
       parameters:
       - description: Novo Pedido
         in: body
@@ -1073,8 +1339,6 @@ paths:
             additionalProperties:
               type: string
             type: object
-      security:
-      - ApiKeyAuth: []
       summary: Cria um novo Pedido de Adoção
       tags:
       - PedidoAdocao
@@ -1171,6 +1435,57 @@ paths:
       security:
       - ApiKeyAuth: []
       summary: Atualiza o status de um Pedido de Adoção
+      tags:
+      - PedidoAdocao
+  /api/v1/pedidos-adocao/{pedidoId}/respostas/{respostaId}/imagem:
+    post:
+      consumes:
+      - multipart/form-data
+      description: |-
+        Endpoint público (sem auth). Após criar o pedido, chame este endpoint
+        para cada campo do tipo 'imagem'. A URL gerada é salva em RespostaFormulario.Valor.
+        Se a resposta já possuía uma imagem anterior, ela é removida do storage antes do novo upload.
+      parameters:
+      - description: ID do Pedido de Adoção
+        in: path
+        name: pedidoId
+        required: true
+        type: string
+      - description: ID da Resposta (campo do tipo imagem)
+        in: path
+        name: respostaId
+        required: true
+        type: string
+      - description: Arquivo de imagem
+        in: formData
+        name: imagem
+        required: true
+        type: file
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              message:
+                type: string
+              resposta:
+                $ref: '#/definitions/models.RespostaFormulario'
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Faz upload de imagem em uma resposta de campo do tipo 'imagem'
       tags:
       - PedidoAdocao
   /api/v1/pets:

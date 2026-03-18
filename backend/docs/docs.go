@@ -718,6 +718,124 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/formularios/{id}/imagem": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Substitui a imagem existente (se houver) e armazena a nova via Supabase",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Faz upload da imagem de capa de um Formulário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Imagem de capa",
+                        "name": "imagem",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "formulario": {
+                                    "$ref": "#/definitions/models.FormularioModelo"
+                                },
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "FormularioModelo"
+                ],
+                "summary": "Remove a imagem de capa de um Formulário",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Formulário",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "formulario": {
+                                    "$ref": "#/definitions/models.FormularioModelo"
+                                },
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/ongs": {
             "get": {
                 "description": "Retorna todas as ONGs cadastradas",
@@ -728,6 +846,32 @@ const docTemplate = `{
                     "ONG"
                 ],
                 "summary": "Lista todas as ONGs",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "Filtrar por nome",
+                        "name": "nome",
+                        "in": "query"
+                    },
+                    {
+                        "type": "string",
+                        "description": "Filtrar por e-mail",
+                        "name": "email",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (default: 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -785,13 +929,49 @@ const docTemplate = `{
             }
         },
         "/api/v1/ongs/{id}": {
+            "get": {
+                "description": "Retorna uma ONG específica pelo ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ONG"
+                ],
+                "summary": "Busca uma ONG pelo ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ONG",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Ong"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
             "put": {
                 "security": [
                     {
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Atualiza os dados de uma ONG pelo ID",
+                "description": "Atualiza os dados de uma ONG pelo ID (não atualiza logo)",
                 "consumes": [
                     "application/json"
                 ],
@@ -920,6 +1100,125 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/ongs/{id}/logo": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Envia uma imagem de logo para a ONG pelo ID (usando Supabase)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ONG"
+                ],
+                "summary": "Faz upload do logo de uma ONG",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ONG",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Logo da ONG",
+                        "name": "logo",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "ong": {
+                                    "$ref": "#/definitions/models.Ong"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove o logo de uma ONG pelo ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "ONG"
+                ],
+                "summary": "Remove o logo de uma ONG",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID da ONG",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "ong": {
+                                    "$ref": "#/definitions/models.Ong"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/pedidos-adocao": {
             "get": {
                 "security": [
@@ -970,12 +1269,7 @@ const docTemplate = `{
                 }
             },
             "post": {
-                "security": [
-                    {
-                        "ApiKeyAuth": []
-                    }
-                ],
-                "description": "Cria o pedido com as respostas ao formulário vinculado ao Pet.\nAs respostas são validadas contra a configuração de cada campo.",
+                "description": "Cria o pedido com as respostas ao formulário vinculado ao Pet.\nPara campos do tipo 'imagem', envie o campo_formulario_id com valor vazio (\"\").\nApós criar o pedido, use POST /pedidos-adocao/:pedidoId/respostas/:respostaId/imagem\npara enviar a imagem de cada campo do tipo imagem.",
                 "consumes": [
                     "application/json"
                 ],
@@ -1144,6 +1438,78 @@ const docTemplate = `{
                         "description": "OK",
                         "schema": {
                             "$ref": "#/definitions/models.PedidoAdocaoDTO"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/pedidos-adocao/{pedidoId}/respostas/{respostaId}/imagem": {
+            "post": {
+                "description": "Endpoint público (sem auth). Após criar o pedido, chame este endpoint\npara cada campo do tipo 'imagem'. A URL gerada é salva em RespostaFormulario.Valor.\nSe a resposta já possuía uma imagem anterior, ela é removida do storage antes do novo upload.",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "PedidoAdocao"
+                ],
+                "summary": "Faz upload de imagem em uma resposta de campo do tipo 'imagem'",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Pedido de Adoção",
+                        "name": "pedidoId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "string",
+                        "description": "ID da Resposta (campo do tipo imagem)",
+                        "name": "respostaId",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Arquivo de imagem",
+                        "name": "imagem",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                },
+                                "resposta": {
+                                    "$ref": "#/definitions/models.RespostaFormulario"
+                                }
+                            }
                         }
                     },
                     "400": {
@@ -1594,7 +1960,6 @@ const docTemplate = `{
                     "type": "boolean"
                 },
                 "descricao": {
-                    "description": "texto de ajuda abaixo do campo",
                     "type": "string"
                 },
                 "label": {
@@ -1602,19 +1967,15 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "max": {
-                    "description": "max de caracteres (texto) ou valor (numero)",
                     "type": "integer"
                 },
                 "max_valor": {
-                    "description": "para tipo numero",
                     "type": "number"
                 },
                 "min": {
-                    "description": "min de caracteres (texto) ou valor (numero)",
                     "type": "integer"
                 },
                 "min_valor": {
-                    "description": "para tipo numero",
                     "type": "number"
                 },
                 "obrigatorio": {
@@ -1629,7 +1990,6 @@ const docTemplate = `{
                     }
                 },
                 "placeholder": {
-                    "description": "ex: \"Digite seu nome\"",
                     "type": "string"
                 },
                 "regex": {
@@ -1655,7 +2015,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "formulario_modelo_id": {
-                    "description": "ponteiro = nullable",
                     "type": "string"
                 },
                 "id": {
@@ -1704,6 +2063,9 @@ const docTemplate = `{
                 "id": {
                     "type": "string"
                 },
+                "imagem_url": {
+                    "type": "string"
+                },
                 "nome": {
                     "type": "string"
                 },
@@ -1718,10 +2080,22 @@ const docTemplate = `{
         "models.Ong": {
             "type": "object",
             "properties": {
+                "area_de_atuacao": {
+                    "$ref": "#/definitions/models.OngRegiao"
+                },
+                "descricao": {
+                    "type": "string"
+                },
                 "email": {
                     "type": "string"
                 },
                 "endereco": {
+                    "type": "string"
+                },
+                "instagram": {
+                    "type": "string"
+                },
+                "logo": {
                     "type": "string"
                 },
                 "nome": {
@@ -1730,13 +2104,34 @@ const docTemplate = `{
                 "nome_responsavel": {
                     "type": "string"
                 },
+                "site": {
+                    "type": "string"
+                },
                 "telefone": {
                     "type": "string"
                 },
                 "user_id": {
                     "type": "string"
+                },
+                "whatsapp": {
+                    "type": "string"
                 }
             }
+        },
+        "models.OngRegiao": {
+            "type": "string",
+            "enum": [
+                "Serra",
+                "Vitória",
+                "Vila-Velha",
+                "Cariacica"
+            ],
+            "x-enum-varnames": [
+                "OngRegiaoSerra",
+                "OngRegiaoVitoria",
+                "OngRegiaoVilaVelha",
+                "OngRegiaoCariacica"
+            ]
         },
         "models.PedidoAdocaoDTO": {
             "type": "object",
@@ -1860,6 +2255,30 @@ const docTemplate = `{
                 "PetDraft"
             ]
         },
+        "models.RespostaFormulario": {
+            "type": "object",
+            "properties": {
+                "campo_formulario_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "pedido_adocao_id": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                },
+                "valor": {
+                    "description": "Para tipo \"imagem\": começa vazio (\"\") e é preenchido via\nPOST /pedidos-adocao/:pedidoId/respostas/:respostaId/imagem",
+                    "type": "string"
+                }
+            }
+        },
         "models.RespostaFormularioDTO": {
             "type": "object",
             "properties": {
@@ -1885,7 +2304,23 @@ const docTemplate = `{
                 "textarea",
                 "email",
                 "telefone",
-                "data"
+                "data",
+                "imagem"
+            ],
+            "x-enum-comments": {
+                "TipoCampoImagem": "adotante envia imagem como resposta"
+            },
+            "x-enum-descriptions": [
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "",
+                "adotante envia imagem como resposta"
             ],
             "x-enum-varnames": [
                 "TipoCampoTexto",
@@ -1896,7 +2331,8 @@ const docTemplate = `{
                 "TipoCampoTextarea",
                 "TipoCampoEmail",
                 "TipoCampoTelefone",
-                "TipoCampoData"
+                "TipoCampoData",
+                "TipoCampoImagem"
             ]
         },
         "v1.BannerListResponse": {
@@ -1976,6 +2412,10 @@ const docTemplate = `{
         "v1.CreateOngInput": {
             "type": "object",
             "properties": {
+                "descricao": {
+                    "type": "string",
+                    "example": "ONG dedicada ao resgate de animais"
+                },
                 "email": {
                     "type": "string",
                     "example": "a@b.com"
@@ -1983,6 +2423,10 @@ const docTemplate = `{
                 "endereco": {
                     "type": "string",
                     "example": "Rua A"
+                },
+                "instagram": {
+                    "type": "string",
+                    "example": "@minhaong"
                 },
                 "nome": {
                     "type": "string",
@@ -1992,9 +2436,25 @@ const docTemplate = `{
                     "type": "string",
                     "example": "Fulano"
                 },
+                "regiao": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/models.OngRegiao"
+                        }
+                    ],
+                    "example": "Serra"
+                },
+                "site": {
+                    "type": "string",
+                    "example": "https://minhaong.org"
+                },
                 "telefone": {
                     "type": "string",
                     "example": "123"
+                },
+                "whatsapp": {
+                    "type": "string",
+                    "example": "https://wa.me/5527999999999"
                 }
             }
         },
