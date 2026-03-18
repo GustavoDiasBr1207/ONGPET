@@ -221,7 +221,7 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		resposta := models.RespostaFormulario{
 			PedidoAdocaoID:    pedido.ID,
 			CampoFormularioID: r.CampoFormularioID,
-			Valor:             r.Valor, // "" para campos de imagem
+			Valor:             r.Valor,
 		}
 		if err := db.Create(&resposta).Error; err != nil {
 			return err
@@ -305,7 +305,6 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return errors.New("ID da resposta inválido")
 	}
 
-	// Carrega a resposta garantindo que pertence ao pedido informado
 	var resposta models.RespostaFormulario
 	if err := db.
 		Preload("CampoFormulario").
@@ -316,7 +315,6 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return err
 	}
 
-	// Garante que o campo é do tipo imagem
 	var cfg models.CampoConfiguracao
 	if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
 		return errors.New("erro ao ler configuração do campo")
@@ -334,10 +332,9 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return errors.New("tipo de imagem inválido")
 	}
 
-	// Remove imagem anterior do storage (best-effort), igual ao DeletePetImage
 	if resposta.Valor != "" {
-		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor); pathErr == nil {
-			if delErr := utils.DeleteFile(objectPath); delErr != nil {
+		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor, utils.SupabaseBucketFormularios); pathErr == nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
 			}
 		} else {
@@ -350,14 +347,14 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return err
 	}
 
-	// Pasta: pedidoID / nome do campo / posição 1 (única por resposta)
 	url, err := utils.UploadOptimizedFile(
 		optimized.Buffer,
 		optimized.ContentType,
 		optimized.Extension,
-		pedidoID.String(),   // pasta raiz = ID do pedido
-		cfg.Label,           // subpasta = label do campo ("Foto da casa", etc.)
-		1,                   // posição fixa — uma imagem por resposta
+		utils.SupabaseBucketFormularios,
+		pedidoID.String(),
+		cfg.Label,
+		1,
 	)
 	if err != nil {
 		return err
@@ -463,8 +460,6 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 
 		valor, respondido := respostaMap[campo.ID]
 
-		// Campo do tipo imagem: o valor chega vazio e será preenchido via upload
-		// separado. Só verifica se o campo foi incluído na lista (obrigatório).
 		if cfg.Tipo == models.TipoCampoImagem {
 			if cfg.Obrigatorio && !respondido {
 				return fmt.Errorf("campo '%s' é obrigatório — inclua-o nas respostas com valor vazio e envie a imagem via POST .../respostas/:id/imagem", cfg.Label)
