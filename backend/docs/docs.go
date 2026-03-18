@@ -68,6 +68,362 @@ const docTemplate = `{
                 }
             }
         },
+        "/api/v1/banners": {
+            "get": {
+                "description": "Retorna banners com filtros e paginação",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Banner"
+                ],
+                "summary": "Lista todos os Banners",
+                "parameters": [
+                    {
+                        "type": "boolean",
+                        "description": "Filtrar por ativo",
+                        "name": "active",
+                        "in": "query"
+                    },
+                    {
+                        "type": "boolean",
+                        "description": "Filtrar apenas banners no período vigente (start_at \u003c= now \u003c= end_at)",
+                        "name": "vigente",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Página (default: 1)",
+                        "name": "page",
+                        "in": "query"
+                    },
+                    {
+                        "type": "integer",
+                        "description": "Itens por página (default: 10)",
+                        "name": "limit",
+                        "in": "query"
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/v1.BannerListResponse"
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Cria um Banner no sistema (sem imagem — use o endpoint de upload)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Banner"
+                ],
+                "summary": "Cria um novo Banner",
+                "parameters": [
+                    {
+                        "description": "Novo Banner",
+                        "name": "banner",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateBannerInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.Banner"
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/banners/{id}": {
+            "get": {
+                "description": "Retorna um Banner específico pelo ID",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Banner"
+                ],
+                "summary": "Busca um Banner pelo ID",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Banner",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "$ref": "#/definitions/models.Banner"
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "put": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Atualiza os metadados de um Banner pelo ID (não atualiza imagem)",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Banner"
+                ],
+                "summary": "Atualiza um Banner existente",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Banner",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Dados para atualização",
+                        "name": "banner",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.UpdateBannerInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "banner": {
+                                    "$ref": "#/definitions/models.Banner"
+                                },
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove um Banner pelo ID (e sua imagem do storage)",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Banner"
+                ],
+                "summary": "Remove um Banner",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Banner",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/banners/{id}/imagem": {
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Envia uma imagem para o Banner pelo ID (substitui a anterior)",
+                "consumes": [
+                    "multipart/form-data"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Banner"
+                ],
+                "summary": "Faz upload da imagem de um Banner",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Banner",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "type": "file",
+                        "description": "Imagem do Banner",
+                        "name": "image",
+                        "in": "formData",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "banner": {
+                                    "$ref": "#/definitions/models.Banner"
+                                },
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            },
+            "delete": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "description": "Remove a imagem do storage e limpa o image_url do Banner",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Banner"
+                ],
+                "summary": "Remove a imagem de um Banner",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Banner",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "properties": {
+                                "banner": {
+                                    "$ref": "#/definitions/models.Banner"
+                                },
+                                "message": {
+                                    "type": "string"
+                                }
+                            }
+                        }
+                    },
+                    "404": {
+                        "description": "Not Found",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/formularios": {
             "get": {
                 "security": [
@@ -1611,6 +1967,41 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.Banner": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "end_at": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "image_url": {
+                    "type": "string"
+                },
+                "instagram_url": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "start_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
         "models.CampoConfiguracao": {
             "type": "object",
             "properties": {
@@ -1993,6 +2384,49 @@ const docTemplate = `{
                 "TipoCampoImagem"
             ]
         },
+        "v1.BannerListResponse": {
+            "type": "object",
+            "properties": {
+                "dados": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.Banner"
+                    }
+                },
+                "proxima_pagina": {
+                    "type": "boolean"
+                },
+                "total_paginas": {
+                    "type": "integer"
+                },
+                "total_registros": {
+                    "type": "integer"
+                }
+            }
+        },
+        "v1.CreateBannerInput": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "end_at": {
+                    "type": "string"
+                },
+                "instagram_url": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "start_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
+                }
+            }
+        },
         "v1.CreateCampoInput": {
             "type": "object",
             "properties": {
@@ -2227,6 +2661,29 @@ const docTemplate = `{
                 },
                 "total_registros": {
                     "type": "integer"
+                }
+            }
+        },
+        "v1.UpdateBannerInput": {
+            "type": "object",
+            "properties": {
+                "active": {
+                    "type": "boolean"
+                },
+                "end_at": {
+                    "type": "string"
+                },
+                "instagram_url": {
+                    "type": "string"
+                },
+                "position": {
+                    "type": "integer"
+                },
+                "start_at": {
+                    "type": "string"
+                },
+                "title": {
+                    "type": "string"
                 }
             }
         },

@@ -36,7 +36,7 @@ func debugEnv() {
 	if url != "" && key != "" && bucket != "" {
 		fmt.Println("✅ Todas as variáveis obrigatórias estão presentes!")
 	}
-	fmt.Println("=====================================\n")
+	fmt.Println("=====================================")
 }
 
 func truncate(s string, maxLen int) string {

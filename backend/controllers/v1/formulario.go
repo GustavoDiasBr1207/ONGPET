@@ -84,7 +84,7 @@ func ReadFormularios(c *gin.Context) error {
 		return err
 	}
 
-	offset     := (page - 1) * limit
+	offset := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	var formularios []models.FormularioModelo

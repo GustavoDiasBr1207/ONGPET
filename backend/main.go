@@ -18,8 +18,9 @@ import (
 	"ongpet/models"
 	"ongpet/utils"
 
-	"github.com/joho/godotenv"
 	_ "ongpet/docs" // Swagger
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -34,7 +35,6 @@ func main() {
 	db := database.Connect(os.Getenv("DATABASE_URL"))
 
 	utils.InitSupabase()
-
 	err := db.AutoMigrate(
 		// base
 		&models.Ong{},
@@ -43,6 +43,9 @@ func main() {
 		&models.Pet{},
 		&models.PetImage{},
 		&models.PedidoAdocao{},
+
+		// banner
+		&models.Banner{},
 
 		// formulário
 		&models.FormularioModelo{},
