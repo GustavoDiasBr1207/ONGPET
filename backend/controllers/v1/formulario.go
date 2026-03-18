@@ -66,12 +66,7 @@ func ReadFormularios(c *gin.Context) error {
 		query = query.Where("ong_id = ?", ongID)
 	}
 
-<<<<<<< HEAD
-	// ── Paginação ──────────────────────────────────────────────
-	pageStr := c.DefaultQuery("page", "1")
-=======
 	pageStr  := c.DefaultQuery("page",  "1")
->>>>>>> origin/dev
 	limitStr := c.DefaultQuery("limit", "10")
 
 	page, err := strconv.Atoi(pageStr)

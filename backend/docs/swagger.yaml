@@ -290,7 +290,7 @@ definitions:
     - TipoCampoEmail
     - TipoCampoTelefone
     - TipoCampoData
-<<<<<<< HEAD
+    - TipoCampoImagem
   v1.BannerListResponse:
     properties:
       dados:
@@ -319,9 +319,6 @@ definitions:
       title:
         type: string
     type: object
-=======
-    - TipoCampoImagem
->>>>>>> origin/dev
   v1.CreateCampoInput:
     properties:
       configuracao:
@@ -699,6 +696,37 @@ paths:
       tags:
       - Banner
   /api/v1/banners/{id}/imagem:
+    delete:
+      description: Remove a imagem do storage e limpa o image_url do Banner
+      parameters:
+      - description: ID do Banner
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            properties:
+              banner:
+                $ref: '#/definitions/models.Banner'
+              message:
+                type: string
+            type: object
+        "404":
+          description: Not Found
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      security:
+      - ApiKeyAuth: []
+      summary: Remove a imagem de um Banner
+      tags:
+      - Banner
     post:
       consumes:
       - multipart/form-data

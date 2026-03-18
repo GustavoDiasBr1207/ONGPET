@@ -35,10 +35,6 @@ func main() {
 	db := database.Connect(os.Getenv("DATABASE_URL"))
 
 	utils.InitSupabase()
-<<<<<<< HEAD
-=======
-
->>>>>>> origin/dev
 	err := db.AutoMigrate(
 		// base
 		&models.Ong{},
