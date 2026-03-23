@@ -20,6 +20,7 @@ func SetupRoutes() *gin.Engine {
 	config := cors.Config{
 		AllowOrigins: []string{
 			"https://adote-serra.vercel.app",
+			"https://adote-serra-96i7unxjt-biiel027s-projects.vercel.app/",
 			"http://localhost:3000",
 			"http://localhost:5173",
 			"https://ongpet-n9z9.onrender.com",
