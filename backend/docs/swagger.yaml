@@ -475,6 +475,21 @@ definitions:
       total_registros:
         type: integer
     type: object
+  v1.SendTestEmailRequest:
+    properties:
+      data:
+        additionalProperties:
+          type: string
+        type: object
+      template:
+        type: string
+      to:
+        type: string
+    required:
+    - data
+    - template
+    - to
+    type: object
   v1.UpdateBannerInput:
     properties:
       active:
@@ -1762,6 +1777,58 @@ paths:
       summary: Remove uma imagem de um Pet
       tags:
       - Pet
+  /api/v1/test/email:
+    post:
+      consumes:
+      - application/json
+      description: |-
+        Envia um email de teste usando os templates configurados
+        Templates disponíveis: adoption_request, pet_registered, adoption_confirmed, contact
+      parameters:
+      - description: Dados do email de teste
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/v1.SendTestEmailRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "400":
+          description: Bad Request
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+        "500":
+          description: Internal Server Error
+          schema:
+            additionalProperties:
+              type: string
+            type: object
+      summary: Envia email de teste
+      tags:
+      - Email
+  /api/v1/test/email-config:
+    get:
+      description: Verifica se o mailer foi inicializado corretamente
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            additionalProperties: true
+            type: object
+      summary: Valida configuração de email
+      tags:
+      - Email
 securityDefinitions:
   ApiKeyAuth:
     in: header
