@@ -239,6 +239,7 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		var ong models.Ong
 		if err := db.First(&ong, "id = ?", req.OngID).Error; err == nil {
 			requesterName := "Novo solicitante"
+			
 			// Tenta buscar o nome do solicitante nas respostas do formulário
 			for _, resposta := range pedido.Respostas {
 				if resposta.CampoFormulario.Nome == "Nome" || resposta.CampoFormulario.Nome == "nome" {
@@ -247,18 +248,40 @@ func CreatePedidoAdocao(c *gin.Context) error {
 				}
 			}
 			
-			// Enviar para o email da ONG
-			err := utils.SendEmailAdoptionRequest(
-				[]string{ong.Email},
-				pet.Nome,
-				requesterName,
-				ong.Nome,
-			)
-			if err != nil {
-				// Log do erro mas não interrompe a operação
-				fmt.Println("⚠️ Erro ao enviar email para ONG:", err)
-			} else {
-				fmt.Println("✅ Email enviado para ONG:", ong.Email)
+			// Monta mapa de respostas do formulário para o email
+			respostasMap := make(map[string]string)
+			for _, resposta := range pedido.Respostas {
+				respostasMap[resposta.CampoFormulario.Nome] = resposta.Valor
+			}
+			
+			// Cria os dados completos para o email
+			emailData := utils.AdoptionRequestFullData{
+				PetNome:             pet.Nome,
+				PetEspecie:          pet.Especie,
+				PetRaca:             pet.Raca,
+				PetIdade:            pet.Idade,
+				PetDescricao:        pet.Descricao,
+				PetPeso:             pet.Peso,
+				PetPorte:            pet.Porte,
+				PetRegiao:           pet.Regiao,
+				OngNome:             ong.Nome,
+				SolicitanteName:     requesterName,
+				RespostasFormulario: respostasMap,
+			}
+			
+			// Gera o email com todas as informações
+			subject, body := utils.NewAdoptionRequestFullEmail(emailData)
+			
+			// Envia para o email da ONG
+			mailer := utils.GetMailer()
+			if mailer != nil {
+				err := mailer.Send([]string{ong.Email}, subject, body)
+				if err != nil {
+					// Log do erro mas não interrompe a operação
+					fmt.Println("⚠️ Erro ao enviar email para ONG:", err)
+				} else {
+					fmt.Println("✅ Email enviado para ONG:", ong.Email)
+				}
 			}
 		}
 	}()
