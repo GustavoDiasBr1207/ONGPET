@@ -281,6 +281,7 @@ func UploadPetImages(c *gin.Context) error {
 			optimized.Buffer,
 			optimized.ContentType,
 			optimized.Extension,
+			utils.SupabaseBucketPets,
 			petID.String(),
 			pet.Nome,
 			position,
@@ -455,9 +456,8 @@ func DeletePetImage(c *gin.Context) error {
 		return err
 	}
 
-	objectPath, pathErr := utils.ExtractObjectPath(image.URL)
-	if pathErr == nil {
-		if err := utils.DeleteFile(objectPath); err != nil {
+	if objectPath, pathErr := utils.ExtractObjectPath(image.URL, utils.SupabaseBucketPets); pathErr == nil {
+		if err := utils.DeleteFile(utils.SupabaseBucketPets, objectPath); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar arquivo do storage: %s\n", err.Error())
 		}
 	} else {

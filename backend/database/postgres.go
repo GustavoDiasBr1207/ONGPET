@@ -2,6 +2,7 @@ package database
 
 import (
 	"log"
+	"time"
 
 	"gorm.io/driver/postgres"
 	"gorm.io/gorm"
@@ -30,7 +31,17 @@ func Connect(dsn string) *gorm.DB {
 	if err != nil {
 		log.Fatal("❌ Erro ao conectar no banco:", err)
 	}
-	log.Println("✅ Conexão com o banco inicializada")
+
+	// Configurar connection pool para melhor performance
+	sqlDB, err := db.DB()
+	if err != nil {
+		log.Fatal("❌ Erro ao obter SQL DB:", err)
+	}
+	sqlDB.SetMaxOpenConns(10)         // máximo de conexões abertas
+	sqlDB.SetMaxIdleConns(5)          // manter 5 conexões idle
+	sqlDB.SetConnMaxLifetime(time.Hour) // renovar conexões a cada hora
+
+	log.Println("✅ Conexão com o banco inicializada com pool otimizado")
 	return db
 }
 

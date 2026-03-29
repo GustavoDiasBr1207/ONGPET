@@ -35,6 +35,12 @@ func main() {
 	db := database.Connect(os.Getenv("DATABASE_URL"))
 
 	utils.InitSupabase()
+
+	// 📧 Inicializar mailer para envio de emails
+	if err := utils.InitMailer(); err != nil {
+		log.Println("⚠️ Falha ao inicializar mailer:", err)
+	}
+
 	err := db.AutoMigrate(
 		// base
 		&models.Ong{},
@@ -65,6 +71,9 @@ func main() {
 			log.Fatal("❌ Erro ao rodar migrations:", err)
 		}
 	}
+
+	// 🔧 Rodar migrações de tabelas e índices
+	database.RunMigrations()
 
 	r := controllers.SetupRoutes()
 

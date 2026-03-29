@@ -95,6 +95,10 @@ func SetupRoutes() *gin.Engine {
 		api.PUT("/pedidos-adocao/:id/status", RequireAuth(), Handle(v1.UpdateStatusPedidoAdocao))
 		api.DELETE("/pedidos-adocao/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
 		api.POST("/pedidos-adocao/:pedidoId/respostas/:respostaId/imagem", Handle(v1.UploadRespostaImagem))
+
+		// Testes de Email
+		api.GET("/test/email-config", Handle(v1.CheckEmailConfig))
+		api.POST("/test/email", Handle(v1.SendTestEmail))
 	}
 
 	// 404
