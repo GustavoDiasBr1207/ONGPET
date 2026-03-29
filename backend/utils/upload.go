@@ -2,12 +2,12 @@ package utils
 
 import (
 	"bytes"
+	"encoding/json"
 	"fmt"
 	"io"
 	"mime/multipart"
 	"net/http"
 	"net/textproto"
-	"encoding/json"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -15,9 +15,11 @@ import (
 )
 
 var (
-	SupabaseURL    string
-	SupabaseKey    string
-	SupabaseBucket string
+	SupabaseURL               string
+	SupabaseKey               string
+	SupabaseBucketPets        string
+	SupabaseBucketOngs        string
+	SupabaseBucketFormularios string
 )
 
 /*
@@ -27,10 +29,16 @@ var (
 func InitSupabase() {
 	SupabaseURL = strings.TrimSpace(os.Getenv("SUPABASE_URL"))
 	SupabaseKey = strings.TrimSpace(os.Getenv("SUPABASE_SERVICE_ROLE_KEY"))
-	SupabaseBucket = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET"))
 
-	if SupabaseURL == "" || SupabaseKey == "" || SupabaseBucket == "" {
-		panic("❌ SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY e SUPABASE_BUCKET são obrigatórios")
+	SupabaseBucketPets        = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_PETS"))
+	SupabaseBucketOngs        = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_ONGS"))
+	SupabaseBucketFormularios = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_FORMULARIOS"))
+
+	if SupabaseURL == "" || SupabaseKey == "" {
+		panic("❌ SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios")
+	}
+	if SupabaseBucketPets == "" || SupabaseBucketOngs == "" || SupabaseBucketFormularios == "" {
+		panic("❌ SUPABASE_BUCKET_PETS, SUPABASE_BUCKET_ONGS e SUPABASE_BUCKET_FORMULARIOS são obrigatórios")
 	}
 
 	fmt.Println("✅ Supabase Storage (REST) inicializado com sucesso")
@@ -48,10 +56,10 @@ func IsValidImage(file *multipart.FileHeader) bool {
 
 /*
 	UploadFile envia arquivo para o Supabase Storage
-	Path final: <petID>/<slug-pet>-<posição>.<extensão>
 */
 func UploadFile(
 	file *multipart.FileHeader,
+	bucket string,
 	petID string,
 	petName string,
 	position int,
@@ -76,7 +84,6 @@ func UploadFile(
 		ext,
 	)
 
-	// 🔹 Monta multipart body manualmente (com MIME correto)
 	body := &bytes.Buffer{}
 	writer := multipart.NewWriter(body)
 
@@ -103,7 +110,7 @@ func UploadFile(
 	uploadURL := fmt.Sprintf(
 		"%s/storage/v1/object/%s/%s",
 		SupabaseURL,
-		SupabaseBucket,
+		bucket,
 		objectPath,
 	)
 
@@ -112,7 +119,6 @@ func UploadFile(
 		return "", err
 	}
 
-	// 🔥 HEADERS OBRIGATÓRIOS DO SUPABASE
 	req.Header.Set("Authorization", "Bearer "+SupabaseKey)
 	req.Header.Set("apikey", SupabaseKey)
 	req.Header.Set("Content-Type", writer.FormDataContentType())
@@ -136,51 +142,50 @@ func UploadFile(
 	publicURL := fmt.Sprintf(
 		"%s/storage/v1/object/public/%s/%s",
 		SupabaseURL,
-		SupabaseBucket,
+		bucket,
 		objectPath,
 	)
 
 	return publicURL, nil
 }
 
-func DeleteFile(objectPath string) error {
-    deleteURL := fmt.Sprintf(
-        "%s/storage/v1/object/%s",
-        SupabaseURL,
-        SupabaseBucket,
-    )
+func DeleteFile(bucket string, objectPath string) error {
+	deleteURL := fmt.Sprintf(
+		"%s/storage/v1/object/%s",
+		SupabaseURL,
+		bucket,
+	)
 
-    // Supabase exige body JSON com array de prefixes
-    bodyBytes, err := json.Marshal(map[string][]string{
-        "prefixes": {objectPath},
-    })
-    if err != nil {
-        return err
-    }
+	bodyBytes, err := json.Marshal(map[string][]string{
+		"prefixes": {objectPath},
+	})
+	if err != nil {
+		return err
+	}
 
-    req, err := http.NewRequest(http.MethodDelete, deleteURL, bytes.NewReader(bodyBytes))
-    if err != nil {
-        return err
-    }
+	req, err := http.NewRequest(http.MethodDelete, deleteURL, bytes.NewReader(bodyBytes))
+	if err != nil {
+		return err
+	}
 
-    req.Header.Set("Authorization", "Bearer "+SupabaseKey)
-    req.Header.Set("apikey", SupabaseKey)
-    req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Authorization", "Bearer "+SupabaseKey)
+	req.Header.Set("apikey", SupabaseKey)
+	req.Header.Set("Content-Type", "application/json")
 
-    resp, err := http.DefaultClient.Do(req)
-    if err != nil {
-        return err
-    }
-    defer resp.Body.Close()
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
 
-    respBody, _ := io.ReadAll(resp.Body)
+	respBody, _ := io.ReadAll(resp.Body)
 
-    if resp.StatusCode >= 300 {
-        return fmt.Errorf("❌ delete falhou (%d): %s", resp.StatusCode, string(respBody))
-    }
+	if resp.StatusCode >= 300 {
+		return fmt.Errorf("❌ delete falhou (%d): %s", resp.StatusCode, string(respBody))
+	}
 
-    fmt.Printf("✅ Arquivo deletado do Supabase: %s | resposta: %s\n", objectPath, string(respBody))
-    return nil
+	fmt.Printf("✅ Arquivo deletado do Supabase: %s | resposta: %s\n", objectPath, string(respBody))
+	return nil
 }
 
 // slugify transforma texto em slug seguro
@@ -193,8 +198,8 @@ func slugify(input string) string {
 }
 
 // ExtractObjectPath extrai o caminho relativo do objeto a partir da URL pública
-func ExtractObjectPath(publicURL string) (string, error) {
-	marker := fmt.Sprintf("/storage/v1/object/public/%s/", SupabaseBucket)
+func ExtractObjectPath(publicURL string, bucket string) (string, error) {
+	marker := fmt.Sprintf("/storage/v1/object/public/%s/", bucket)
 	idx := strings.Index(publicURL, marker)
 	if idx == -1 {
 		return "", fmt.Errorf("URL inválida, não foi possível extrair o caminho: %s", publicURL)

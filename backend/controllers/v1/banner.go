@@ -280,8 +280,8 @@ func UploadBannerImage(c *gin.Context) error {
 
 	// deleta imagem anterior do storage (se existir)
 	if banner.ImageURL != "" {
-		if objectPath, pathErr := utils.ExtractObjectPath(banner.ImageURL); pathErr == nil {
-			if err := utils.DeleteFile(objectPath); err != nil {
+		if objectPath, pathErr := utils.ExtractObjectPath(banner.ImageURL, utils.SupabaseBucketOngs); pathErr == nil {
+			if err := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); err != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", err.Error())
 			}
 		} else {
@@ -293,6 +293,7 @@ func UploadBannerImage(c *gin.Context) error {
 		optimized.Buffer,
 		optimized.ContentType,
 		optimized.Extension,
+		utils.SupabaseBucketOngs,
 		banner.ID.String(),
 		banner.Title,
 		banner.Position,
@@ -428,8 +429,8 @@ func DeleteBannerImage(c *gin.Context) error {
 		return errors.New("este banner não possui imagem")
 	}
 
-	if objectPath, pathErr := utils.ExtractObjectPath(banner.ImageURL); pathErr == nil {
-		if err := utils.DeleteFile(objectPath); err != nil {
+	if objectPath, pathErr := utils.ExtractObjectPath(banner.ImageURL, utils.SupabaseBucketOngs); pathErr == nil {
+		if err := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar imagem do storage: %s\n", err.Error())
 		}
 	} else {
@@ -480,8 +481,8 @@ func DeleteBanner(c *gin.Context) error {
 	}
 
 	if banner.ImageURL != "" {
-		if objectPath, pathErr := utils.ExtractObjectPath(banner.ImageURL); pathErr == nil {
-			if err := utils.DeleteFile(objectPath); err != nil {
+		if objectPath, pathErr := utils.ExtractObjectPath(banner.ImageURL, utils.SupabaseBucketOngs); pathErr == nil {
+			if err := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); err != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem do storage: %s\n", err.Error())
 			}
 		}

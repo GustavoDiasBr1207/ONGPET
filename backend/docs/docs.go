@@ -1964,6 +1964,82 @@ const docTemplate = `{
                     }
                 }
             }
+        },
+        "/api/v1/test/email": {
+            "post": {
+                "description": "Envia um email de teste usando os templates configurados\nTemplates disponíveis: adoption_request, pet_registered, adoption_confirmed, contact",
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Email"
+                ],
+                "summary": "Envia email de teste",
+                "parameters": [
+                    {
+                        "description": "Dados do email de teste",
+                        "name": "request",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.SendTestEmailRequest"
+                        }
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "400": {
+                        "description": "Bad Request",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    },
+                    "500": {
+                        "description": "Internal Server Error",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": {
+                                "type": "string"
+                            }
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/test/email-config": {
+            "get": {
+                "description": "Verifica se o mailer foi inicializado corretamente",
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Email"
+                ],
+                "summary": "Valida configuração de email",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "object",
+                            "additionalProperties": true
+                        }
+                    }
+                }
+            }
         }
     },
     "definitions": {
@@ -2661,6 +2737,28 @@ const docTemplate = `{
                 },
                 "total_registros": {
                     "type": "integer"
+                }
+            }
+        },
+        "v1.SendTestEmailRequest": {
+            "type": "object",
+            "required": [
+                "data",
+                "template",
+                "to"
+            ],
+            "properties": {
+                "data": {
+                    "type": "object",
+                    "additionalProperties": {
+                        "type": "string"
+                    }
+                },
+                "template": {
+                    "type": "string"
+                },
+                "to": {
+                    "type": "string"
                 }
             }
         },

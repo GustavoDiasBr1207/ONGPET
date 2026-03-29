@@ -1,0 +1,125 @@
+```
+📧 SISTEMA DE EMAIL - ESTRUTURA DE ARQUIVOS
+═══════════════════════════════════════════════════════════════
+
+📁 backend/
+│
+├── 🔧 CONFIGURAÇÃO
+│   ├── .env ........................... SMTP_USER, SMTP_PASS, etc
+│   │   └─ SMTP_USER = gustavodl.gdl33@gmail.com ✅
+│   │   └─ SMTP_PASS = [seu_token_16_chars] ⚠️ Configurar
+│   │
+│   └── go.mod ......................... Dependências Go
+│       └─ ADICIONAR: gopkg.in/gomail.v2 (execute: go get)
+│
+├── 📧 UTILS (Lógica de Email)
+│   ├── utils/email.go ................. ✨ MAILER CORE
+│   │   ├─ type Mailer struct
+│   │   ├─ func New() - conecta ao SMTP
+│   │   └─ func (m *Mailer) Send() - envia email
+│   │
+│   ├── utils/templates.go ............. ✨ TEMPLATES HTML
+│   │   ├─ NewPetRegisteredEmail()
+│   │   ├─ NewAdoptionRequestEmail()
+│   │   ├─ NewAdoptionConfirmedEmail()
+│   │   └─ NewContactEmail()
+│   │
+│   ├── utils/mailer_service.go ........ ✨ SERVIÇO CENTRALIZADO
+│   │   ├─ var mailerInstance (Singleton)
+│   │   ├─ func InitMailer() - setup
+│   │   ├─ func GetMailer() - acesso global
+│   │   ├─ func SendEmailPetRegistered()
+│   │   ├─ func SendEmailAdoptionRequest()
+│   │   ├─ func SendEmailAdoptionConfirmed()
+│   │   └─ func SendEmailContact()
+│   │
+│   └── utils/email_test.go ............ ✨ TESTES
+│       ├─ type EmailTestData struct
+│       └─ func SendTestEmail() - genérico
+│
+├── 🎮 CONTROLLERS
+│   ├── main.go ........................ ✨ INICIALIZAÇÃO
+│   │   └─ utils.InitMailer() no startup
+│   │
+│   ├── controllers/routes.go .......... ✨ ROTAS DE TESTE
+│   │   ├─ GET  /api/v1/test/email-config
+│   │   └─ POST /api/v1/test/email
+│   │
+│   ├── controllers/v1/pedidoadocao.go . ✨ INTEGRAÇÃO AUTOMÁTICA
+│   │   └─ CreatePedidoAdocao()
+│   │       └─ go SendEmailAdoptionRequest() [background]
+│   │
+│   └── controllers/v1/email_test.go ... ✨ ENDPOINTS DE TESTE
+│       ├─ func SendTestEmail() - POST handler
+│       └─ func CheckEmailConfig() - GET handler
+│
+├── 📚 DOCUMENTAÇÃO
+│   ├── RESUMO_EMAIL.md ................ Sumário executivo
+│   ├── GUIA_EMAIL.md .................. Manual completo
+│   ├── EMAIL_CONFIG.md ................ Setup Gmail step-by-step
+│   ├── ARQUITETURA_EMAIL.md ........... Diagramas e fluxos
+│   └── test-email.sh .................. Script de testes (bash)
+│
+└── 🧪 TESTES
+    ├── /api/v1/test/email-config ..... GET - verifica setup
+    └── /api/v1/test/email ............ POST - envia de teste
+
+═══════════════════════════════════════════════════════════════
+
+🔄 FLUXO PRINCIPAL: Pedido de Adoção
+───────────────────────────────────────────────────────────────
+
+1. Cliente → POST /api/v1/pedidos-adocao
+                ↓
+2. CreatePedidoAdocao (controllers/v1/pedidoadocao.go)
+                ↓
+3. Valida dados + Create DB records
+                ↓
+4. Retorna HTTP 201 ← Cliente recebe resposta IMEDIATAMENTE
+                ↓
+5. [BACKGROUND - Goroutine]
+   SendEmailAdoptionRequest()
+                ↓
+6. GetMailer() → Busca instância singleton
+                ↓
+7. NewAdoptionRequestEmail() → Gera HTML
+                ↓
+8. Mailer.Send() → SMTP Gmail
+                ↓
+9. Email chega em ong.email ✅
+
+═══════════════════════════════════════════════════════════════
+
+📊 CONFIGURAÇÕES FINAL
+───────────────────────────────────────────────────────────────
+
+✅ Email: gustavodl.gdl33@gmail.com
+✅ SMTP: smtp.gmail.com:587 (TLS)
+⚠️  PASS: [ADICIONE SEU TOKEN DE 16 CARACTERES]
+✅ Templates: 4 tipos disponíveis
+✅ Endpoints: 2 rotas de teste
+✅ Goroutines: Não bloqueia requisições
+✅ Tratamento de erros: Gracioso
+
+═══════════════════════════════════════════════════════════════
+
+🚀 QUICK START
+───────────────────────────────────────────────────────────────
+
+1. go get gopkg.in/gomail.v2
+
+2. Configurar SMTP_PASS em .env (16 chars do Gmail)
+
+3. go run main.go
+
+4. curl http://localhost:8080/api/v1/test/email-config
+   → Deve retornar: {"status":"ok",...}
+
+5. ./test-email.sh http://localhost:8080 seu_email@gmail.com
+   → Deve enviar email para seu_email
+
+6. Criar pedido de adoção via API
+   → Deve enviar email para ONG automaticamente ✅
+
+═══════════════════════════════════════════════════════════════
+```

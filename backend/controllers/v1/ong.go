@@ -221,8 +221,8 @@ func UploadOngLogo(c *gin.Context) error {
 
 	// Remove logo anterior do storage, se existir
 	if ong.Logo != "" {
-		if objectPath, pathErr := utils.ExtractObjectPath(ong.Logo); pathErr == nil {
-			if delErr := utils.DeleteFile(objectPath); delErr != nil {
+		if objectPath, pathErr := utils.ExtractObjectPath(ong.Logo, utils.SupabaseBucketOngs); pathErr == nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar logo anterior do storage: %s\n", delErr.Error())
 			}
 		}
@@ -237,9 +237,10 @@ func UploadOngLogo(c *gin.Context) error {
 		optimized.Buffer,
 		optimized.ContentType,
 		optimized.Extension,
+		utils.SupabaseBucketOngs,
 		ongID.String(),
 		ong.Nome,
-		0, // posição fixa — logo único
+		0,
 	)
 	if err != nil {
 		return err
@@ -286,9 +287,8 @@ func DeleteOngLogo(c *gin.Context) error {
 		return errors.New("ONG não possui logo")
 	}
 
-	objectPath, pathErr := utils.ExtractObjectPath(ong.Logo)
-	if pathErr == nil {
-		if err := utils.DeleteFile(objectPath); err != nil {
+	if objectPath, pathErr := utils.ExtractObjectPath(ong.Logo, utils.SupabaseBucketOngs); pathErr == nil {
+		if err := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar logo do storage: %s\n", err.Error())
 		}
 	} else {

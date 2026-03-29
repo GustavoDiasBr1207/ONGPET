@@ -187,9 +187,58 @@ func CreateFormulario(c *gin.Context) error {
 		return err
 	}
 
+	// 📧 Adicionar campos padrão: Nome, Email e Telefone
+	camposPadroes := []CreateCampoInput{
+		{
+			Nome:  "Nome",
+			Ordem: 0,
+			Configuracao: models.CampoConfiguracao{
+				Label:       "Nome",
+				Placeholder: "Seu nome completo",
+				Tipo:        models.TipoCampoTexto,
+				Obrigatorio: true,
+				Ativo:       true,
+			},
+		},
+		{
+			Nome:  "Email",
+			Ordem: 1,
+			Configuracao: models.CampoConfiguracao{
+				Label:       "Email",
+				Placeholder: "seu_email@exemplo.com",
+				Tipo:        models.TipoCampoEmail,
+				Obrigatorio: true,
+				Ativo:       true,
+			},
+		},
+		{
+			Nome:  "Telefone",
+			Ordem: 2,
+			Configuracao: models.CampoConfiguracao{
+				Label:       "Telefone",
+				Placeholder: "(XX) 99999-9999",
+				Tipo:        models.TipoCampoTelefone,
+				Obrigatorio: true,
+				Ativo:       true,
+			},
+		},
+	}
+
+	// Adiciona campos padrões com ordem 1 e 2
+	for _, campoInput := range camposPadroes {
+		campo, err := buildCampo(formulario.ID, campoInput)
+		if err != nil {
+			return err
+		}
+		if err := db.Create(&campo).Error; err != nil {
+			return err
+		}
+	}
+
+	// Adiciona campos customizados com ordem começando em 3
 	for i, campoInput := range req.Campos {
 		if campoInput.Ordem == 0 {
-			campoInput.Ordem = i + 1
+			campoInput.Ordem = i + 3 // Começa em 3 (após nome, email e telefone)
 		}
 		campo, err := buildCampo(formulario.ID, campoInput)
 		if err != nil {
@@ -352,8 +401,8 @@ func UploadFormularioImagem(c *gin.Context) error {
 
 	// Remove imagem anterior do storage (best-effort)
 	if formulario.ImagemURL != "" {
-		if objectPath, pathErr := utils.ExtractObjectPath(formulario.ImagemURL); pathErr == nil {
-			if delErr := utils.DeleteFile(objectPath); delErr != nil {
+		if objectPath, pathErr := utils.ExtractObjectPath(formulario.ImagemURL, utils.SupabaseBucketFormularios); pathErr == nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
 			}
 		}
@@ -368,9 +417,10 @@ func UploadFormularioImagem(c *gin.Context) error {
 		optimized.Buffer,
 		optimized.ContentType,
 		optimized.Extension,
+		utils.SupabaseBucketFormularios,
 		formularioID.String(),
 		formulario.Nome,
-		1, // posição fixa — uma imagem por formulário
+		1,
 	)
 	if err != nil {
 		return err
@@ -422,8 +472,8 @@ func DeleteFormularioImagem(c *gin.Context) error {
 		return errors.New("o formulário não possui imagem cadastrada")
 	}
 
-	if objectPath, pathErr := utils.ExtractObjectPath(formulario.ImagemURL); pathErr == nil {
-		if err := utils.DeleteFile(objectPath); err != nil {
+	if objectPath, pathErr := utils.ExtractObjectPath(formulario.ImagemURL, utils.SupabaseBucketFormularios); pathErr == nil {
+		if err := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar arquivo do storage: %s\n", err.Error())
 		}
 	} else {

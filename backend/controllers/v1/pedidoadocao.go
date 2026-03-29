@@ -214,25 +214,84 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	for _, r := range req.Respostas {
-		if r.CampoFormularioID == uuid.Nil {
-			continue
+	// ⚡ Batch insert ao invés de loop sequencial (muito mais rápido)
+	if len(req.Respostas) > 0 {
+		var respostas []models.RespostaFormulario
+		for _, r := range req.Respostas {
+			if r.CampoFormularioID == uuid.Nil {
+				continue
+			}
+			respostas = append(respostas, models.RespostaFormulario{
+				PedidoAdocaoID:    pedido.ID,
+				CampoFormularioID: r.CampoFormularioID,
+				Valor:             r.Valor,
+			})
 		}
-		resposta := models.RespostaFormulario{
-			PedidoAdocaoID:    pedido.ID,
-			CampoFormularioID: r.CampoFormularioID,
-			Valor:             r.Valor, // "" para campos de imagem
-		}
-		if err := db.Create(&resposta).Error; err != nil {
-			return err
+		if len(respostas) > 0 {
+			if err := db.CreateInBatches(respostas, 100).Error; err != nil {
+				return err
+			}
 		}
 	}
 
+	// Carregar respostas criadas
 	if err := db.
 		Preload("Respostas.CampoFormulario").
 		First(&pedido, "id = ?", pedido.ID).Error; err != nil {
 		return err
 	}
+
+	// 📧 Enviar email para a ONG sobre nova solicitação de adoção
+	go func() {
+		var ong models.Ong
+		if err := db.First(&ong, "id = ?", req.OngID).Error; err == nil {
+			requesterName := "Novo solicitante"
+			
+			// Tenta buscar o nome do solicitante nas respostas do formulário
+			for _, resposta := range pedido.Respostas {
+				if resposta.CampoFormulario.Nome == "Nome" || resposta.CampoFormulario.Nome == "nome" {
+					requesterName = resposta.Valor
+					break
+				}
+			}
+			
+			// Monta mapa de respostas do formulário para o email
+			respostasMap := make(map[string]string)
+			for _, resposta := range pedido.Respostas {
+				respostasMap[resposta.CampoFormulario.Nome] = resposta.Valor
+			}
+			
+			// Cria os dados completos para o email
+			emailData := utils.AdoptionRequestFullData{
+				PetNome:             pet.Nome,
+				PetEspecie:          pet.Especie,
+				PetRaca:             pet.Raca,
+				PetIdade:            pet.Idade,
+				PetDescricao:        pet.Descricao,
+				PetPeso:             pet.Peso,
+				PetPorte:            pet.Porte,
+				PetRegiao:           pet.Regiao,
+				OngNome:             ong.Nome,
+				SolicitanteName:     requesterName,
+				RespostasFormulario: respostasMap,
+			}
+			
+			// Gera o email com todas as informações
+			subject, body := utils.NewAdoptionRequestFullEmail(emailData)
+			
+			// Envia para o email da ONG
+			mailer := utils.GetMailer()
+			if mailer != nil {
+				err := mailer.Send([]string{ong.Email}, subject, body)
+				if err != nil {
+					// Log do erro mas não interrompe a operação
+					fmt.Println("⚠️ Erro ao enviar email para ONG:", err)
+				} else {
+					fmt.Println("✅ Email enviado para ONG:", ong.Email)
+				}
+			}
+		}
+	}()
 
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Pedido de adoção criado com sucesso",
@@ -305,7 +364,6 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return errors.New("ID da resposta inválido")
 	}
 
-	// Carrega a resposta garantindo que pertence ao pedido informado
 	var resposta models.RespostaFormulario
 	if err := db.
 		Preload("CampoFormulario").
@@ -316,7 +374,6 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return err
 	}
 
-	// Garante que o campo é do tipo imagem
 	var cfg models.CampoConfiguracao
 	if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
 		return errors.New("erro ao ler configuração do campo")
@@ -334,10 +391,9 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return errors.New("tipo de imagem inválido")
 	}
 
-	// Remove imagem anterior do storage (best-effort), igual ao DeletePetImage
 	if resposta.Valor != "" {
-		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor); pathErr == nil {
-			if delErr := utils.DeleteFile(objectPath); delErr != nil {
+		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor, utils.SupabaseBucketFormularios); pathErr == nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
 			}
 		} else {
@@ -350,14 +406,14 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return err
 	}
 
-	// Pasta: pedidoID / nome do campo / posição 1 (única por resposta)
 	url, err := utils.UploadOptimizedFile(
 		optimized.Buffer,
 		optimized.ContentType,
 		optimized.Extension,
-		pedidoID.String(),   // pasta raiz = ID do pedido
-		cfg.Label,           // subpasta = label do campo ("Foto da casa", etc.)
-		1,                   // posição fixa — uma imagem por resposta
+		utils.SupabaseBucketFormularios,
+		pedidoID.String(),
+		cfg.Label,
+		1,
 	)
 	if err != nil {
 		return err
@@ -426,6 +482,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
+	oldStatus := pedido.Status
 	pedido.Status = req.Status
 
 	if err := db.Save(&pedido).Error; err != nil {
@@ -434,8 +491,68 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 
 	if err := db.
 		Preload("Respostas.CampoFormulario").
+		Preload("Pet").
+		Preload("Ong").
 		First(&pedido, "id = ?", pedidoID).Error; err != nil {
 		return err
+	}
+
+	// 📧 Enviar email para o solicitante quando status mudar para aprovado ou rejeitado
+	if (req.Status == models.PedidoAdocaoAprovado || req.Status == models.PedidoAdocaoRejeitado) &&
+		oldStatus == models.PedidoAdocaoPendente {
+		go func() {
+			// Extrai email e nome do solicitante das respostas
+			var solicitantEmail string
+			var solicitanteName string
+			
+			for _, resposta := range pedido.Respostas {
+				if resposta.CampoFormulario.Nome == "Email" {
+					solicitantEmail = resposta.Valor
+				}
+				if resposta.CampoFormulario.Nome == "Nome" {
+					solicitanteName = resposta.Valor
+				}
+			}
+			
+			// Se não encontrou email, não envia
+			if solicitantEmail == "" {
+				fmt.Println("⚠️ Email do solicitante não encontrado nas respostas do formulário")
+				return
+			}
+			
+			var subject, body string
+			
+			if req.Status == models.PedidoAdocaoAprovado {
+				subject, body = utils.NewAdoptionApprovedEmail(
+					solicitanteName,
+					pedido.Pet.Nome,
+					pedido.Ong.Nome,
+					pedido.Ong.Telefone,
+				)
+			} else {
+				subject, body = utils.NewAdoptionRejectedEmail(
+					solicitanteName,
+					pedido.Pet.Nome,
+					pedido.Ong.Nome,
+					"Infelizmente sua solicitação de adoção foi rejeitada.",
+				)
+			}
+			
+			// Envia para o email do solicitante
+			mailer := utils.GetMailer()
+			if mailer != nil {
+				err := mailer.Send([]string{solicitantEmail}, subject, body)
+				if err != nil {
+					fmt.Println("⚠️ Erro ao enviar email para solicitante:", err)
+				} else {
+					statusMsg := "aprovado"
+					if req.Status == models.PedidoAdocaoRejeitado {
+						statusMsg = "rejeitado"
+					}
+					fmt.Printf("✅ Email de %s enviado para: %s\n", statusMsg, solicitantEmail)
+				}
+			}
+		}()
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -463,8 +580,6 @@ func validarRespostas(respostas []CreateRespostaInput, campos []models.CampoForm
 
 		valor, respondido := respostaMap[campo.ID]
 
-		// Campo do tipo imagem: o valor chega vazio e será preenchido via upload
-		// separado. Só verifica se o campo foi incluído na lista (obrigatório).
 		if cfg.Tipo == models.TipoCampoImagem {
 			if cfg.Obrigatorio && !respondido {
 				return fmt.Errorf("campo '%s' é obrigatório — inclua-o nas respostas com valor vazio e envie a imagem via POST .../respostas/:id/imagem", cfg.Label)
