@@ -475,6 +475,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
+	oldStatus := pedido.Status
 	pedido.Status = req.Status
 
 	if err := db.Save(&pedido).Error; err != nil {
@@ -483,8 +484,68 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 
 	if err := db.
 		Preload("Respostas.CampoFormulario").
+		Preload("Pet").
+		Preload("Ong").
 		First(&pedido, "id = ?", pedidoID).Error; err != nil {
 		return err
+	}
+
+	// 📧 Enviar email para o solicitante quando status mudar para aprovado ou rejeitado
+	if (req.Status == models.PedidoAdocaoAprovado || req.Status == models.PedidoAdocaoRejeitado) &&
+		oldStatus == models.PedidoAdocaoPendente {
+		go func() {
+			// Extrai email e nome do solicitante das respostas
+			var solicitantEmail string
+			var solicitanteName string
+			
+			for _, resposta := range pedido.Respostas {
+				if resposta.CampoFormulario.Nome == "Email" {
+					solicitantEmail = resposta.Valor
+				}
+				if resposta.CampoFormulario.Nome == "Nome" {
+					solicitanteName = resposta.Valor
+				}
+			}
+			
+			// Se não encontrou email, não envia
+			if solicitantEmail == "" {
+				fmt.Println("⚠️ Email do solicitante não encontrado nas respostas do formulário")
+				return
+			}
+			
+			var subject, body string
+			
+			if req.Status == models.PedidoAdocaoAprovado {
+				subject, body = utils.NewAdoptionApprovedEmail(
+					solicitanteName,
+					pedido.Pet.Nome,
+					pedido.Ong.Nome,
+					pedido.Ong.Telefone,
+				)
+			} else {
+				subject, body = utils.NewAdoptionRejectedEmail(
+					solicitanteName,
+					pedido.Pet.Nome,
+					pedido.Ong.Nome,
+					"Infelizmente sua solicitação de adoção foi rejeitada.",
+				)
+			}
+			
+			// Envia para o email do solicitante
+			mailer := utils.GetMailer()
+			if mailer != nil {
+				err := mailer.Send([]string{solicitantEmail}, subject, body)
+				if err != nil {
+					fmt.Println("⚠️ Erro ao enviar email para solicitante:", err)
+				} else {
+					statusMsg := "aprovado"
+					if req.Status == models.PedidoAdocaoRejeitado {
+						statusMsg = "rejeitado"
+					}
+					fmt.Printf("✅ Email de %s enviado para: %s\n", statusMsg, solicitantEmail)
+				}
+			}
+		}()
 	}
 
 	c.JSON(http.StatusOK, gin.H{
