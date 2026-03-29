@@ -234,6 +234,35 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
+	// 📧 Enviar email para a ONG sobre nova solicitação de adoção
+	go func() {
+		var ong models.Ong
+		if err := db.First(&ong, "id = ?", req.OngID).Error; err == nil {
+			requesterName := "Novo solicitante"
+			// Tenta buscar o nome do solicitante nas respostas do formulário
+			for _, resposta := range pedido.Respostas {
+				if resposta.CampoFormulario.Nome == "Nome" || resposta.CampoFormulario.Nome == "nome" {
+					requesterName = resposta.Valor
+					break
+				}
+			}
+			
+			// Enviar para o email da ONG
+			err := utils.SendEmailAdoptionRequest(
+				[]string{ong.Email},
+				pet.Nome,
+				requesterName,
+				ong.Nome,
+			)
+			if err != nil {
+				// Log do erro mas não interrompe a operação
+				fmt.Println("⚠️ Erro ao enviar email para ONG:", err)
+			} else {
+				fmt.Println("✅ Email enviado para ONG:", ong.Email)
+			}
+		}
+	}()
+
 	c.JSON(http.StatusCreated, gin.H{
 		"message": "Pedido de adoção criado com sucesso",
 		"pedido":  mapPedidoToDTO(pedido),

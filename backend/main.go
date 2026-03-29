@@ -35,6 +35,11 @@ func main() {
 
 	utils.InitSupabase()
 
+	// 📧 Inicializar mailer para envio de emails
+	if err := utils.InitMailer(); err != nil {
+		log.Println("⚠️ Falha ao inicializar mailer:", err)
+	}
+
 	err := db.AutoMigrate(
 		// base
 		&models.Ong{},
