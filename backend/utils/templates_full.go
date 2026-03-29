@@ -124,3 +124,113 @@ func NewAdoptionRequestFullEmail(data AdoptionRequestFullData) (subject, body st
 	)
 	return
 }
+
+// NewAdoptionApprovedEmail envia email para o solicitante quando a adoção é aprovada
+func NewAdoptionApprovedEmail(solicitanteName, petName, ongName, telefoneOng string) (subject, body string) {
+	subject = fmt.Sprintf("🎉 Parabéns! Sua adoção de %s foi aprovada!", petName)
+	body = fmt.Sprintf(`
+		<html>
+		<head>
+			<style>
+				body { font-family: Arial, sans-serif; color: #333; }
+				.container { max-width: 700px; margin: 0 auto; padding: 20px; }
+				.header { background-color: #4CAF50; color: white; padding: 20px; text-align: center; border-radius: 5px; }
+				.section { margin: 20px 0; }
+				.footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }
+				.action-box { background-color: #c8e6c9; border-left: 4px solid #4CAF50; padding: 15px; margin: 15px 0; border-radius: 3px; }
+				.highlight { font-size: 18px; font-weight: bold; color: #2e7d32; }
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h1>🎉 Parabéns!</h1>
+				</div>
+
+				<div class="section">
+					<p>Olá <strong>%s</strong>,</p>
+					<p>Temos o prazer em informar que sua solicitação de adoção foi <span class="highlight">APROVADA</span>! 🐾</p>
+				</div>
+
+				<div class="section">
+					<h3>✅ Sua Adoção foi Aprovada</h3>
+					<p>Congratulações! Sua solicitação para adotar <strong>%s</strong> foi avaliada e aprovada pela equipe da <strong>%s</strong>.</p>
+				</div>
+
+				<div class="action-box">
+					<p><strong>Próximos Passos:</strong></p>
+					<p>A ONG entrará em contato com você em breve para agendar a entrega do seu novo companheiro! 🐾</p>
+					<p><strong>Telefone para contato:</strong> %s</p>
+				</div>
+
+				<div class="section">
+					<p>Obrigado por escolher adotar e dar um lar amoroso para um animal!</p>
+					<p>Qualquer dúvida, entre em contato com a ONG.</p>
+				</div>
+
+				<div class="footer">
+					<p><strong>Sistema OngPet</strong> - Plataforma de Adoção de Animais</p>
+					<p>Aqui você muda vidas!</p>
+				</div>
+			</div>
+		</body>
+		</html>
+	`, solicitanteName, petName, ongName, telefoneOng)
+	return
+}
+
+// NewAdoptionRejectedEmail envia email para o solicitante quando a adoção é rejeitada
+func NewAdoptionRejectedEmail(solicitanteName, petName, ongName, motivo string) (subject, body string) {
+	subject = fmt.Sprintf("Atualização sobre sua solicitação de adoção de %s", petName)
+	body = fmt.Sprintf(`
+		<html>
+		<head>
+			<style>
+				body { font-family: Arial, sans-serif; color: #333; }
+				.container { max-width: 700px; margin: 0 auto; padding: 20px; }
+				.header { background-color: #ff9800; color: white; padding: 20px; text-align: center; border-radius: 5px; }
+				.section { margin: 20px 0; }
+				.footer { text-align: center; color: #666; font-size: 12px; margin-top: 30px; padding-top: 20px; border-top: 1px solid #ddd; }
+				.info-box { background-color: #fff3cd; border-left: 4px solid #ff9800; padding: 15px; margin: 15px 0; border-radius: 3px; }
+			</style>
+		</head>
+		<body>
+			<div class="container">
+				<div class="header">
+					<h1>⚠️ Atualização Importante</h1>
+				</div>
+
+				<div class="section">
+					<p>Olá <strong>%s</strong>,</p>
+					<p>Agradecemos sinceramente seu interesse em adotar <strong>%s</strong> através da <strong>%s</strong>.</p>
+				</div>
+
+				<div class="info-box">
+					<p><strong>Infelizmente,</strong> sua solicitação de adoção foi avaliada e <strong>não foi aprovada</strong> neste momento.</p>
+					<p><strong>Motivo:</strong> %s</p>
+				</div>
+
+				<div class="section">
+					<p>Não desista! Existem muitos outros animais incríveis esperando por um lar amoroso. 🐾</p>
+					<p>Você pode:</p>
+					<ul>
+						<li>Explorar outros pets disponíveis para adoção</li>
+						<li>Melhorar algumas características mencionadas e solicitar novamente</li>
+						<li>Entrar em contato com a ONG para mais informações</li>
+					</ul>
+				</div>
+
+				<div class="section">
+					<p>Continuamos à disposição para ajudar você a encontrar seu companheiro perfeito!</p>
+				</div>
+
+				<div class="footer">
+					<p><strong>Sistema OngPet</strong> - Plataforma de Adoção de Animais</p>
+					<p>Aqui você muda vidas!</p>
+				</div>
+			</div>
+		</body>
+		</html>
+	`, solicitanteName, petName, ongName, motivo)
+	return
+}

@@ -82,3 +82,27 @@ func SendEmailContact(to []string, name, email, message string) error {
 	subject, body := NewContactEmail(name, email, message)
 	return mailer.Send(to, subject, body)
 }
+
+// SendEmailAdoptionApproved envia email para o solicitante quando a adoção é aprovada
+func SendEmailAdoptionApproved(to []string, solicitanteName, petName, ongName, telefoneOng string) error {
+	mailer := GetMailer()
+	if mailer == nil {
+		log.Println("⚠️ Mailer indisponível, email não enviado")
+		return nil
+	}
+
+	subject, body := NewAdoptionApprovedEmail(solicitanteName, petName, ongName, telefoneOng)
+	return mailer.Send(to, subject, body)
+}
+
+// SendEmailAdoptionRejected envia email para o solicitante quando a adoção é rejeitada
+func SendEmailAdoptionRejected(to []string, solicitanteName, petName, ongName, motivo string) error {
+	mailer := GetMailer()
+	if mailer == nil {
+		log.Println("⚠️ Mailer indisponível, email não enviado")
+		return nil
+	}
+
+	subject, body := NewAdoptionRejectedEmail(solicitanteName, petName, ongName, motivo)
+	return mailer.Send(to, subject, body)
+}

@@ -187,9 +187,47 @@ func CreateFormulario(c *gin.Context) error {
 		return err
 	}
 
+	// 📧 Adicionar campos padrão: Email e Telefone
+	camposPadroes := []CreateCampoInput{
+		{
+			Nome:  "Email",
+			Ordem: 1,
+			Configuracao: models.CampoConfiguracao{
+				Label:       "Email",
+				Placeholder: "seu_email@exemplo.com",
+				Tipo:        models.TipoCampoEmail,
+				Obrigatorio: true,
+				Ativo:       true,
+			},
+		},
+		{
+			Nome:  "Telefone",
+			Ordem: 2,
+			Configuracao: models.CampoConfiguracao{
+				Label:       "Telefone",
+				Placeholder: "(XX) 99999-9999",
+				Tipo:        models.TipoCampoTelefone,
+				Obrigatorio: true,
+				Ativo:       true,
+			},
+		},
+	}
+
+	// Adiciona campos padrões com ordem 1 e 2
+	for _, campoInput := range camposPadroes {
+		campo, err := buildCampo(formulario.ID, campoInput)
+		if err != nil {
+			return err
+		}
+		if err := db.Create(&campo).Error; err != nil {
+			return err
+		}
+	}
+
+	// Adiciona campos customizados com ordem começando em 3
 	for i, campoInput := range req.Campos {
 		if campoInput.Ordem == 0 {
-			campoInput.Ordem = i + 1
+			campoInput.Ordem = i + 3 // Começa em 3 (após email e telefone)
 		}
 		campo, err := buildCampo(formulario.ID, campoInput)
 		if err != nil {
