@@ -40,33 +40,8 @@ func main() {
 		log.Println("⚠️ Falha ao inicializar mailer:", err)
 	}
 
-	err := db.AutoMigrate(
-		// base
-		&models.Ong{},
-
-		// dependem de Ong
-		&models.Pet{},
-		&models.PetImage{},
-		&models.PedidoAdocao{},
-
-		// formulário
-		&models.FormularioModelo{},
-		&models.CampoFormulario{},
-
-		// depende de PedidoAdocao + CampoFormulario
-		&models.RespostaFormulario{},
-	)
-
-	if err != nil {
-		errMsg := err.Error()
-
-		if strings.Contains(errMsg, "already exists") ||
-			strings.Contains(errMsg, "42P07") {
-			log.Println("⚠️ Tabelas já existem, ignorando AutoMigrate")
-		} else {
-			log.Fatal("❌ Erro ao rodar migrations:", err)
-		}
-	}
+	// 🔧 Rodar migrações de tabelas e índices
+	database.RunMigrations()
 
 	r := controllers.SetupRoutes()
 

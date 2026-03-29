@@ -214,20 +214,27 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	for _, r := range req.Respostas {
-		if r.CampoFormularioID == uuid.Nil {
-			continue
+	// ⚡ Batch insert ao invés de loop sequencial (muito mais rápido)
+	if len(req.Respostas) > 0 {
+		var respostas []models.RespostaFormulario
+		for _, r := range req.Respostas {
+			if r.CampoFormularioID == uuid.Nil {
+				continue
+			}
+			respostas = append(respostas, models.RespostaFormulario{
+				PedidoAdocaoID:    pedido.ID,
+				CampoFormularioID: r.CampoFormularioID,
+				Valor:             r.Valor,
+			})
 		}
-		resposta := models.RespostaFormulario{
-			PedidoAdocaoID:    pedido.ID,
-			CampoFormularioID: r.CampoFormularioID,
-			Valor:             r.Valor,
-		}
-		if err := db.Create(&resposta).Error; err != nil {
-			return err
+		if len(respostas) > 0 {
+			if err := db.CreateInBatches(respostas, 100).Error; err != nil {
+				return err
+			}
 		}
 	}
 
+	// Carregar respostas criadas
 	if err := db.
 		Preload("Respostas.CampoFormulario").
 		First(&pedido, "id = ?", pedido.ID).Error; err != nil {
