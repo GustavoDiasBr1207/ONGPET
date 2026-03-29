@@ -22,6 +22,7 @@ func SetupRoutes() *gin.Engine {
 			"https://adote-serra.vercel.app",
 			"http://localhost:3000",
 			"http://localhost:5173",
+			"https://ongpet-n9z9.onrender.com",
 		},
 		AllowMethods: []string{"GET", "POST", "PUT", "DELETE", "OPTIONS"},
 		AllowHeaders: []string{"Origin", "Content-Type", "Accept", "Authorization"},
@@ -63,6 +64,15 @@ func SetupRoutes() *gin.Engine {
 		api.DELETE("/pets/:id", RequireAuth(), Handle(v1.DeletePet))
 		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v1.UploadPetImages))
 		api.DELETE("/pets/:id/imagens/:imageId", RequireAuth(), Handle(v1.DeletePetImage))
+
+		// Banner
+		api.GET("/banners", Handle(v1.ReadBanners))
+		api.GET("/banners/:id", Handle(v1.ReadBanner))
+		api.POST("/banners", RequireAuth(), Handle(v1.CreateBanner))
+		api.POST("/banners/:id/imagem", RequireAuth(), Handle(v1.UploadBannerImage))
+		api.DELETE("/banners/:id/imagem", RequireAuth(), Handle(v1.DeleteBannerImage))
+		api.PUT("/banners/:id", RequireAuth(), Handle(v1.UpdateBanner))
+		api.DELETE("/banners/:id", RequireAuth(), Handle(v1.DeleteBanner))
 
 		// Formulário
 		api.GET("/formularios", Handle(v1.ReadFormularios))

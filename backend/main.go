@@ -11,13 +11,16 @@ package main
 import (
 	"log"
 	"os"
+	"strings"
 
 	"ongpet/controllers"
 	"ongpet/database"
+	"ongpet/models"
 	"ongpet/utils"
 
-	"github.com/joho/godotenv"
 	_ "ongpet/docs" // Swagger
+
+	"github.com/joho/godotenv"
 )
 
 func main() {
@@ -29,13 +32,44 @@ func main() {
 	debugEnv()
 
 	// 🔌 Conexão única — RLS controlado pelo JWT injetado em cada sessão
-	database.Connect(os.Getenv("DATABASE_URL"))
+	db := database.Connect(os.Getenv("DATABASE_URL"))
 
 	utils.InitSupabase()
 
 	// 📧 Inicializar mailer para envio de emails
 	if err := utils.InitMailer(); err != nil {
 		log.Println("⚠️ Falha ao inicializar mailer:", err)
+	}
+
+	err := db.AutoMigrate(
+		// base
+		&models.Ong{},
+
+		// dependem de Ong
+		&models.Pet{},
+		&models.PetImage{},
+		&models.PedidoAdocao{},
+
+		// banner
+		&models.Banner{},
+
+		// formulário
+		&models.FormularioModelo{},
+		&models.CampoFormulario{},
+
+		// depende de PedidoAdocao + CampoFormulario
+		&models.RespostaFormulario{},
+	)
+
+	if err != nil {
+		errMsg := err.Error()
+
+		if strings.Contains(errMsg, "already exists") ||
+			strings.Contains(errMsg, "42P07") {
+			log.Println("⚠️ Tabelas já existem, ignorando AutoMigrate")
+		} else {
+			log.Fatal("❌ Erro ao rodar migrations:", err)
+		}
 	}
 
 	// 🔧 Rodar migrações de tabelas e índices
