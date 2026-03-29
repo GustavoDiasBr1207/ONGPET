@@ -21,6 +21,12 @@ type AdoptionRequestFullData struct {
 func NewAdoptionRequestFullEmail(data AdoptionRequestFullData) (subject, body string) {
 	subject = fmt.Sprintf("🐾 Nova Solicitação de Adoção: %s - %s", data.PetNome, data.SolicitanteName)
 
+	// Extrai o nome do solicitante para usar em todo o email
+	solicitanteNome := data.SolicitanteName
+	if nome, existe := data.RespostasFormulario["Nome"]; existe && nome != "" {
+		solicitanteNome = nome
+	}
+
 	// Monta a seção de respostas do formulário
 	respostasHTML := ""
 	if len(data.RespostasFormulario) > 0 {
@@ -74,9 +80,7 @@ func NewAdoptionRequestFullEmail(data AdoptionRequestFullData) (subject, body st
 
 				<div class="section">
 					<p>Olá <strong>%s</strong>,</p>
-					<p>Você recebeu uma nova solicitação de adoção para o seguinte pet:</p>
-				</div>
-
+				<p>Você recebeu uma nova solicitação de adoção de <strong>%s</strong> para o seguinte pet:</p>
 				<div class="section">
 					<h3>🐾 Informações do Pet</h3>
 					<table border="1" cellpadding="10">
@@ -99,18 +103,19 @@ func NewAdoptionRequestFullEmail(data AdoptionRequestFullData) (subject, body st
 				%s
 
 				<div class="action-box">
-					<strong>✅ Próximo Passo:</strong> Faça login no painel da ONG para revisar a solicitação completa, incluindo documentos anexados e formulário respondido pelo solicitante.
+					<strong>✅ Próximo Passo:</strong> Faça login no painel da Instituição para revisar a solicitação completa, incluindo documentos anexados e formulário respondido pelo solicitante.
 				</div>
 
 				<div class="footer">
 					<p><strong>Sistema OngPet</strong> - Plataforma de Adoção de Animais</p>
-					<p>Para mais informações, acesse o painel da ONG</p>
+					<p>Para mais informações, acesse o painel da Instituição</p>
 				</div>
 			</div>
 		</body>
 		</html>
 	`,
 		data.OngNome,
+		solicitanteNome,
 		data.PetNome,
 		data.PetEspecie,
 		data.PetRaca,
@@ -119,7 +124,7 @@ func NewAdoptionRequestFullEmail(data AdoptionRequestFullData) (subject, body st
 		data.PetPorte,
 		data.PetRegiao,
 		data.PetDescricao,
-		data.SolicitanteName,
+		solicitanteNome,
 		respostasHTML,
 	)
 	return
@@ -154,12 +159,10 @@ func NewAdoptionApprovedEmail(solicitanteName, petName, ongName, telefoneOng str
 
 				<div class="section">
 					<h3>✅ Sua Adoção foi Aprovada</h3>
-					<p>Congratulações! Sua solicitação para adotar <strong>%s</strong> foi avaliada e aprovada pela equipe da <strong>%s</strong>.</p>
-				</div>
-
+				<p>Congratulações! Sua solicitação para adotar <strong>%s</strong> foi avaliada e aprovada pela equipe da <strong>Instituição %s</strong>.</p>
 				<div class="action-box">
 					<p><strong>Próximos Passos:</strong></p>
-					<p>A ONG entrará em contato com você em breve para agendar a entrega do seu novo companheiro! 🐾</p>
+					<p>A Instituição entrará em contato com você em breve para agendar a entrega do seu novo companheiro! 🐾</p>
 					<p><strong>Telefone para contato:</strong> %s</p>
 				</div>
 
@@ -202,9 +205,7 @@ func NewAdoptionRejectedEmail(solicitanteName, petName, ongName, motivo string) 
 
 				<div class="section">
 					<p>Olá <strong>%s</strong>,</p>
-					<p>Agradecemos sinceramente seu interesse em adotar <strong>%s</strong> através da <strong>%s</strong>.</p>
-				</div>
-
+				<p>Agradecemos sinceramente seu interesse em adotar <strong>%s</strong> através da <strong>Instituição %s</strong>.</p>
 				<div class="info-box">
 					<p><strong>Infelizmente,</strong> sua solicitação de adoção foi avaliada e <strong>não foi aprovada</strong> neste momento.</p>
 					<p><strong>Motivo:</strong> %s</p>
@@ -216,7 +217,7 @@ func NewAdoptionRejectedEmail(solicitanteName, petName, ongName, motivo string) 
 					<ul>
 						<li>Explorar outros pets disponíveis para adoção</li>
 						<li>Melhorar algumas características mencionadas e solicitar novamente</li>
-						<li>Entrar em contato com a ONG para mais informações</li>
+						<li>Entrar em contato com a Instituição para mais informações</li>
 					</ul>
 				</div>
 

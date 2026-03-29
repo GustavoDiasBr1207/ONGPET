@@ -12,13 +12,13 @@ func NewPetRegisteredEmail(petName, ownerName string) (subject, body string) {
 }
 
 func NewAdoptionRequestEmail(petName, requesterName, ongName string) (subject, body string) {
-    subject = fmt.Sprintf("🐾 Nova solicitação de adoção: %s", petName)
+    subject = fmt.Sprintf("🐾 Nova solicitação de adoção: %s - %s", petName, requesterName)
     body = fmt.Sprintf(`
         <h2>Nova Solicitação de Adoção</h2>
         <p>Olá <strong>%s</strong>,</p>
         <p>Você recebeu uma nova solicitação de adoção para o pet <strong>%s</strong>.</p>
         <p><strong>Solicitante:</strong> %s</p>
-        <p>Acesse o painel da ONG para visualizar os detalhes da solicitação.</p>
+        <p>Acesse o painel da Instituição para visualizar os detalhes da solicitação.</p>
         <br>
         <p>Atenciosamente,<br>Sistema OngPet</p>
     `, ongName, petName, requesterName)
@@ -31,7 +31,7 @@ func NewAdoptionConfirmedEmail(petName, requesterName string) (subject, body str
         <h2>Parabéns! Sua adoção foi aprovada!</h2>
         <p>Olá <strong>%s</strong>,</p>
         <p>Sua solicitação de adoção para o pet <strong>%s</strong> foi aprovada!</p>
-        <p>A ONG entrará em contato com você em breve para os próximos passos.</p>
+        <p>A Instituição entrará em contato com você em breve para os próximos passos.</p>
         <br>
         <p>Obrigado por escolher adotar!<br>Sistema OngPet</p>
     `, requesterName, petName)

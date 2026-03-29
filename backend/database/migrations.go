@@ -17,7 +17,7 @@ func RunMigrations() {
 	if err := db.AutoMigrate(
 		&models.Ong{},
 		&models.Pet{},
-		&models.PetImagem{},
+		&models.PetImage{},
 		&models.FormularioModelo{},
 		&models.CampoFormulario{},
 		&models.PedidoAdocao{},

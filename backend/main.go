@@ -11,11 +11,9 @@ package main
 import (
 	"log"
 	"os"
-	"strings"
 
 	"ongpet/controllers"
 	"ongpet/database"
-	"ongpet/models"
 	"ongpet/utils"
 
 	"github.com/joho/godotenv"
@@ -31,7 +29,7 @@ func main() {
 	debugEnv()
 
 	// 🔌 Conexão única — RLS controlado pelo JWT injetado em cada sessão
-	db := database.Connect(os.Getenv("DATABASE_URL"))
+	database.Connect(os.Getenv("DATABASE_URL"))
 
 	utils.InitSupabase()
 
