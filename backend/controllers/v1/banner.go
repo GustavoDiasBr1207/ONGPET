@@ -235,7 +235,7 @@ func CreateBanner(c *gin.Context) error {
 		EndAt:        endAt,
 		Active:       active,
 		Position:     position,
-		OngID:        req.OngID,
+		OngID:        &req.OngID,
 	}
 
 	if err := db.Create(&banner).Error; err != nil {
@@ -401,7 +401,7 @@ func UpdateBanner(c *gin.Context) error {
 		banner.Position = *req.Position
 	}
 	if req.OngID != nil && *req.OngID != uuid.Nil {
-		banner.OngID = *req.OngID
+		banner.OngID = req.OngID
 	}
 
 	if err := db.Save(&banner).Error; err != nil {

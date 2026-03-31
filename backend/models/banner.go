@@ -35,6 +35,6 @@ type Banner struct {
 	Active   bool `gorm:"default:true" json:"active"`
 	Position int  `gorm:"default:0"    json:"position"`
 
-	OngID uuid.UUID `gorm:"type:uuid;not null" json:"ong_id"`
-	Ong   Ong       `gorm:"foreignKey:OngID;references:ID" json:"-" swaggerignore:"true"`
+	OngID *uuid.UUID `gorm:"type:uuid" json:"ong_id"`
+	Ong   Ong        `gorm:"foreignKey:OngID;references:ID" json:"-" swaggerignore:"true"`
 }
