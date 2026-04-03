@@ -41,6 +41,11 @@ func main() {
 		log.Println("⚠️ Falha ao inicializar mailer:", err)
 	}
 
+	// 💬 Inicializar WhatsApp service para envio de mensagens
+	if err := utils.InitWhatsAppService(); err != nil {
+		log.Println("⚠️ Falha ao inicializar WhatsApp service:", err)
+	}
+
 	err := db.AutoMigrate(
 		// base
 		&models.Ong{},
