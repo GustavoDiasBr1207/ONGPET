@@ -12,142 +12,149 @@ import (
 )
 
 type WhatsAppService struct {
-	apiURL    string
-	apiKey    string
-	enabled   bool
+	apiURL     string
+	apiKey     string
+	enabled    bool
 	httpClient *http.Client
 }
 
-// WhatsAppMessage representa uma mensagem para envio
 type WhatsAppMessage struct {
 	Number string `json:"number"`
 	Text   string `json:"text"`
 }
 
-// NewWhatsAppService cria uma nova instância do serviço WhatsApp
 func NewWhatsAppService() (*WhatsAppService, error) {
 	apiURL := strings.TrimSpace(os.Getenv("WHATSAPP_API_URL"))
 	apiKey := strings.TrimSpace(os.Getenv("WHATSAPP_API_KEY"))
 	enabled := strings.ToLower(strings.TrimSpace(os.Getenv("WHATSAPP_ENABLED"))) == "true"
 
-	// Se WhatsApp não está habilitado, retorna sem erro (graceful degradation)
 	if !enabled {
-		return &WhatsAppService{
-			enabled: false,
-		}, nil
+		return &WhatsAppService{enabled: false}, nil
 	}
 
 	if apiURL == "" || apiKey == "" {
 		return nil, fmt.Errorf("WHATSAPP_API_URL ou WHATSAPP_API_KEY não configurados")
 	}
 
+	fmt.Println("📡 WhatsApp API URL:", apiURL)
+
 	return &WhatsAppService{
-		apiURL:    apiURL,
-		apiKey:    apiKey,
-		enabled:   true,
-		httpClient: &http.Client{Timeout: 10 * time.Second},
+		apiURL:     apiURL,
+		apiKey:     apiKey,
+		enabled:    true,
+		httpClient: &http.Client{Timeout: 15 * time.Second},
 	}, nil
 }
 
-// SendMessage envia uma mensagem de WhatsApp usando Evolution API
-// O número 'to' deve estar no formato: 55XXXXXXXXXX (código país + DDD + número, sem caracteres especiais)
-// A instância do WhatsApp deve estar conectada na Evolution API
-func (w *WhatsAppService) SendMessage(to, message string) error {
-	if !w.enabled {
-		return nil // Silenciosamente ignora se WhatsApp desabilitado
-	}
-
-	if to == "" || message == "" {
-		return fmt.Errorf("número de telefone e mensagem são obrigatórios")
-	}
-
-	// Limpar número: remover caracteres especiais, deixar apenas dígitos
-	cleanedTo := strings.Map(func(r rune) rune {
+// 🔥 Padroniza número para 55XXXXXXXXXX
+func normalizePhoneNumber(phone string) (string, error) {
+	clean := strings.Map(func(r rune) rune {
 		if r >= '0' && r <= '9' {
 			return r
 		}
-		if r == '+' {
-			return r
-		}
 		return -1
-	}, to)
+	}, phone)
 
-	cleanedTo = strings.TrimPrefix(cleanedTo, "+")
-
-	// Validar formato básico: deve ter pelo menos 11 dígitos (55 + 11 dígitos do Brasil)
-	if len(cleanedTo) < 11 {
-		return fmt.Errorf("número de telefone inválido: %s (esperado formato 55XXXXXXXXXX)", to)
+	if len(clean) < 10 {
+		return "", fmt.Errorf("número inválido: %s", phone)
 	}
 
-	// Payload para Evolution API (formato JSON)
-	payload := map[string]interface{}{
-		"number": cleanedTo,
-		"text":   message,
+	// Se não começar com 55, adiciona
+	if !strings.HasPrefix(clean, "55") {
+		clean = "55" + clean
+	}
+
+	if len(clean) < 12 || len(clean) > 13 {
+		return "", fmt.Errorf("número fora do padrão BR: %s", clean)
+	}
+
+	return clean, nil
+}
+
+func (w *WhatsAppService) SendMessage(to, message string) error {
+	if !w.enabled {
+		return nil
+	}
+
+	if to == "" || message == "" {
+		return fmt.Errorf("telefone ou mensagem vazios")
+	}
+
+	normalized, err := normalizePhoneNumber(to)
+	if err != nil {
+		return err
+	}
+
+	payload := WhatsAppMessage{
+		Number: normalized,
+		Text:   message,
 	}
 
 	payloadBytes, err := json.Marshal(payload)
 	if err != nil {
-		return fmt.Errorf("erro ao serializar mensagem: %w", err)
+		return fmt.Errorf("erro ao serializar JSON: %w", err)
 	}
 
-	// Construir requisição para Evolution API
+	fmt.Println("📤 Enviando WhatsApp para:", normalized)
+	fmt.Println("📝 Mensagem:", message)
+
 	req, err := http.NewRequest("POST", w.apiURL, bytes.NewBuffer(payloadBytes))
 	if err != nil {
-		return fmt.Errorf("erro ao criar requisição HTTP: %w", err)
+		return fmt.Errorf("erro ao criar request: %w", err)
 	}
 
 	req.Header.Set("Content-Type", "application/json")
-	req.Header.Set("Authorization", fmt.Sprintf("Bearer %s", w.apiKey))
+	req.Header.Set("apikey", w.apiKey)
 
 	resp, err := w.httpClient.Do(req)
 	if err != nil {
-		return fmt.Errorf("erro ao enviar mensagem WhatsApp: %w", err)
+		return fmt.Errorf("erro HTTP: %w", err)
 	}
 	defer resp.Body.Close()
 
-	body, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("erro ao ler resposta: %w", err)
-	}
+	body, _ := io.ReadAll(resp.Body)
 
-	// Evolution API retorna sucesso em 200, 201 ou formato variável
+	fmt.Println("📥 Status:", resp.StatusCode)
+	fmt.Println("📥 Response:", string(body))
+
 	if resp.StatusCode < 200 || resp.StatusCode >= 300 {
-		return fmt.Errorf("API retornou status %d: %s", resp.StatusCode, string(body))
+		return fmt.Errorf("erro API (%d): %s", resp.StatusCode, string(body))
 	}
 
 	return nil
 }
 
-// SendMessageWithRetry envia mensagem com tentativas de repetição
-// Máximo 2 tentativas com backoff (não bloqueia fluxo principal)
-func (w *WhatsAppService) SendMessageWithRetry(to, message string) {
+// 🔥 AGORA RETORNA ERRO
+func (w *WhatsAppService) SendMessageWithRetry(to, message string) error {
 	if !w.enabled {
-		return
+		return nil
 	}
 
-	const maxRetries = 2
-	const baseDelay = 1 * time.Second
+	const maxRetries = 3
+	const baseDelay = 2 * time.Second
+
+	var lastErr error
 
 	for attempt := 0; attempt < maxRetries; attempt++ {
 		err := w.SendMessage(to, message)
 		if err == nil {
-			// Sucesso
-			return
+			fmt.Println("✅ WhatsApp enviado com sucesso")
+			return nil
 		}
+
+		lastErr = err
+		fmt.Printf("⚠️ Tentativa %d falhou: %v\n", attempt+1, err)
 
 		if attempt < maxRetries-1 {
-			// Backoff exponencial: 1s, 2s
-			delay := baseDelay * time.Duration(1<<uint(attempt))
+			delay := baseDelay * time.Duration(1<<attempt)
 			time.Sleep(delay)
-		} else {
-			// Última tentativa falhou
-			fmt.Printf("⚠️ Erro ao enviar WhatsApp para %s (após %d tentativas): %v\n",
-				maskPhoneNumber(to), maxRetries, err)
 		}
 	}
+
+	fmt.Printf("❌ Falha final ao enviar para %s: %v\n", maskPhoneNumber(to), lastErr)
+	return lastErr
 }
 
-// maskPhoneNumber mascara o número para logging (mostra apenas últimos 4 dígitos)
 func maskPhoneNumber(phone string) string {
 	if len(phone) <= 4 {
 		return "****"
