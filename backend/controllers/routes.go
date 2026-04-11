@@ -97,6 +97,12 @@ func SetupRoutes() *gin.Engine {
 		api.DELETE("/pedidos-adocao/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
 		api.POST("/pedidos-adocao/:pedidoId/respostas/:respostaId/imagem", Handle(v1.UploadRespostaImagem))
 
+		// Acompanhamento
+		api.POST("/acompanhamentos", RequireAuth(), Handle(v1.CreateAcompanhamento))
+		api.GET("/acompanhamentos", RequireAuth(), Handle(v1.ListAcompanhamentos))
+		api.POST("/acompanhamentos/:id/logs", RequireAuth(), Handle(v1.CreateLogAcompanhamento))
+		api.GET("/acompanhamentos/:id/logs", RequireAuth(), Handle(v1.GetAcompanhamentoLogs))
+
 		// Testes de Email
 		api.GET("/test/email-config", Handle(v1.CheckEmailConfig))
 		api.POST("/test/email", Handle(v1.SendTestEmail))

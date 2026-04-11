@@ -22,6 +22,8 @@ func RunMigrations() {
 		&models.CampoFormulario{},
 		&models.PedidoAdocao{},
 		&models.RespostaFormulario{},
+		&models.Acompanhamento{},
+		&models.LogAcompanhamento{},
 	); err != nil {
 		log.Fatal("❌ Erro na migração de tabelas:", err)
 	}
