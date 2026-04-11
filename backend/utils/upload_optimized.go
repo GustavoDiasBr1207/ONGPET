@@ -14,15 +14,16 @@ func UploadOptimizedFile(
 	buffer *bytes.Buffer,
 	contentType string,
 	extension string,
-	petID string,
-	petName string,
+	bucket string,
+	folderID string,
+	name string,
 	position int,
 ) (string, error) {
 
 	objectPath := fmt.Sprintf(
 		"%s/%s-%d%s",
-		petID,
-		slugify(petName),
+		folderID,
+		slugify(name),
 		position,
 		extension,
 	)
@@ -30,7 +31,7 @@ func UploadOptimizedFile(
 	uploadURL := fmt.Sprintf(
 		"%s/storage/v1/object/%s/%s",
 		SupabaseURL,
-		SupabaseBucket,
+		bucket,
 		objectPath,
 	)
 
@@ -57,7 +58,7 @@ func UploadOptimizedFile(
 	publicURL := fmt.Sprintf(
 		"%s/storage/v1/object/public/%s/%s",
 		SupabaseURL,
-		SupabaseBucket,
+		bucket,
 		objectPath,
 	)
 

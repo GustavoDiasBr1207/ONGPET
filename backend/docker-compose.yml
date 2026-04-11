@@ -1,15 +1,109 @@
-version: '3.8'
-
 services:
   app:
     build: .
+    container_name: ongpet_app
     ports:
       - "8080:8080"
     env_file:
       - .env
+    depends_on:
+      - evolution
     networks:
       - ongpet-network
+
+  # PostgreSQL para Evolution API
+  postgres-evolution:
+    image: postgres:16-alpine
+    container_name: postgres_evolution
+    environment:
+      POSTGRES_USER: evolution
+      POSTGRES_PASSWORD: evolution123
+      POSTGRES_DB: evolution
+    ports:
+      - "5433:5432"  # Porta diferente do banco principal (5432)
+    volumes:
+      - postgres_evolution_data:/var/lib/postgresql/data
+    restart: unless-stopped
+    networks:
+      - ongpet-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U evolution"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Evolution API (WhatsApp)
+  evolution:
+    image: evoapicloud/evolution-api:latest
+    container_name: evolution_api
+    ports:
+      - "8081:8080"
+    environment:
+      # Autenticação
+      - AUTHENTICATION_API_KEY=123456
+      - AUTHENTICATION_ENABLE_IN_BOOTSTRAP=true
+      
+      # Banco de Dados (PostgreSQL - OBRIGATÓRIO)
+      - DATABASE_ENABLED=true
+      - DATABASE_PROVIDER=postgresql
+      - DATABASE_CONNECTION_URI=postgresql://evolution:evolution123@postgres-evolution:5432/evolution?schema=public
+      - DATABASE_CONNECTION_CLIENT_NAME=evolution_exchange
+      
+      # O que salvar no BD
+      - DATABASE_SAVE_DATA_INSTANCE=true
+      - DATABASE_SAVE_DATA_NEW_MESSAGE=true
+      - DATABASE_SAVE_MESSAGE_UPDATE=true
+      - DATABASE_SAVE_DATA_CONTACTS=true
+      - DATABASE_SAVE_DATA_CHATS=true
+      
+      # Server
+      - SERVER_TYPE=http
+      - SERVER_PORT=8080
+      - SERVER_CORS_ORIGIN=*
+      - SERVER_CORS_CREDENTIALS=true
+      
+      # Logs
+      - LOGGER_LEVEL=info
+      - LOGGER_COLOR=true
+      - UTILS_LANGUAGE=pt
+      
+      # Storage
+      - STORAGE_BY_MESSAGE_ARCHIVE_MEDIA=true
+      
+      # Redis (obrigatório)
+      - CACHE_REDIS_ENABLED=true
+      - CACHE_REDIS_URI=redis://redis:6379
+      - CACHE_REDIS_PREFIX=evolution
+    depends_on:
+      postgres-evolution:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - ongpet-network
+
+  # Redis para Evolution API (cache e sessions)
+  redis:
+    image: redis:7-alpine
+    container_name: evolution_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    restart: unless-stopped
+    networks:
+      - ongpet-network
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
 
 networks:
   ongpet-network:
     driver: bridge
+
+volumes:
+  postgres_evolution_data:
+  redis_data:
