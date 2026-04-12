@@ -66,6 +66,7 @@ func CreateAcompanhamento(c *gin.Context) error {
 		Frequencia:       req.Frequencia,
 		ProximaData:      req.ProximaData,
 		Status:           models.AcompanhamentoAtivo,
+		LembreteEnviado:  false, // novo acompanhamento nunca teve lembrete enviado
 	}
 
 	if err := db.Create(&acompanhamento).Error; err != nil {
@@ -127,21 +128,26 @@ func CreateLogAcompanhamento(c *gin.Context) error {
 		req.DataContato = time.Now()
 	}
 
-	log := models.LogAcompanhamento{
+	entry := models.LogAcompanhamento{
 		AcompanhamentoID: id,
 		DataContato:      req.DataContato,
 		Notas:            req.Notas,
 	}
 
-	// Iniciar transação para salvar log e atualizar master
 	err = db.Transaction(func(tx *gorm.DB) error {
-		if err := tx.Create(&log).Error; err != nil {
+		if err := tx.Create(&entry).Error; err != nil {
 			return err
 		}
 
-		// Atualizar a próxima data no master se enviada, senão manter ou calcular
 		if req.ProximaData != nil {
-			if err := tx.Model(&models.Acompanhamento{}).Where("id = ?", id).Update("proxima_data", req.ProximaData).Error; err != nil {
+			// Ao atualizar proxima_data, reseta lembrete_enviado para false
+			// para que o scheduler envie novamente para a nova data
+			if err := tx.Model(&models.Acompanhamento{}).
+				Where("id = ?", id).
+				Updates(map[string]interface{}{
+					"proxima_data":     req.ProximaData,
+					"lembrete_enviado": false,
+				}).Error; err != nil {
 				return err
 			}
 		}
@@ -153,7 +159,7 @@ func CreateLogAcompanhamento(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusCreated, mapLogToDTO(log))
+	c.JSON(http.StatusCreated, mapLogToDTO(entry))
 	return nil
 }
 

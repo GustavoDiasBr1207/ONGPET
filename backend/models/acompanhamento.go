@@ -32,13 +32,18 @@ type Acompanhamento struct {
 	OngID uuid.UUID `gorm:"type:uuid;not null;index" json:"ong_id"`
 	Ong   Ong       `gorm:"foreignKey:OngID;references:ID" json:"-" swaggerignore:"true"`
 
-	AdotanteNome     string            `gorm:"not null" json:"adotante_nome"`
-	AdotanteTelefone string            `gorm:"not null" json:"adotante_telefone"`
-	AdotanteEmail    string            `json:"adotante_email"`
-	
+	AdotanteNome     string `gorm:"not null" json:"adotante_nome"`
+	AdotanteTelefone string `gorm:"not null" json:"adotante_telefone"`
+	AdotanteEmail    string `json:"adotante_email"`
+
 	Frequencia  TrackingFrequency    `gorm:"type:text;not null" json:"frequencia"`
 	ProximaData *time.Time           `json:"proxima_data"`
 	Status      AcompanhamentoStatus `gorm:"type:text;default:'ativo'" json:"status"`
+
+	// LembreteEnviado controla se o lembrete desta proxima_data já foi disparado.
+	// É resetado para false toda vez que proxima_data é atualizada,
+	// permitindo que o scheduler envie novamente para a nova data.
+	LembreteEnviado bool `gorm:"default:false" json:"lembrete_enviado"`
 
 	Logs []LogAcompanhamento `gorm:"foreignKey:AcompanhamentoID" json:"logs,omitempty"`
 }

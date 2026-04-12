@@ -46,6 +46,9 @@ func main() {
 		log.Println("⚠️ Falha ao inicializar WhatsApp service:", err)
 	}
 
+	// 📅 Iniciar agendador de lembretes de acompanhamento (roda às 19:05 BRT)
+	utils.StartAcompanhamentoReminderScheduler()
+
 	err := db.AutoMigrate(
 		// base
 		&models.Ong{},
