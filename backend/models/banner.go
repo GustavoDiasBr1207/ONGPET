@@ -1,6 +1,10 @@
 package models
 
-import "time"
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
 
 // ─────────────────────────────────────────────────────────────
 // BANNER STATUS
@@ -28,6 +32,9 @@ type Banner struct {
 	StartAt time.Time `gorm:"not null" json:"start_at"`
 	EndAt   time.Time `gorm:"not null" json:"end_at"`
 
-	Active   bool `gorm:"default:true"  json:"active"`
-	Position int  `gorm:"default:0"     json:"position"`
+	Active   bool `gorm:"default:true" json:"active"`
+	Position int  `gorm:"default:0"    json:"position"`
+
+	OngID *uuid.UUID `gorm:"type:uuid" json:"ong_id"`
+	Ong   Ong        `gorm:"foreignKey:OngID;references:ID" json:"-" swaggerignore:"true"`
 }
