@@ -19,7 +19,10 @@ import (
 	"gorm.io/gorm/schema"
 )
 
-// OngListResponse espelha a estrutura retornada por ReadOngs.
+// ─────────────────────────────────────────────────────────────
+// Response types
+// ─────────────────────────────────────────────────────────────
+
 type OngListResponse struct {
 	Dados          []models.Ong `json:"dados"`
 	TotalRegistros int64        `json:"total_registros"`
@@ -27,7 +30,6 @@ type OngListResponse struct {
 	ProximaPagina  bool         `json:"proxima_pagina"`
 }
 
-// PetListResponse espelha a estrutura retornada por ReadPets.
 type PetListResponse struct {
 	Dados          []models.Pet `json:"dados"`
 	TotalRegistros int64        `json:"total_registros"`
@@ -35,7 +37,17 @@ type PetListResponse struct {
 	ProximaPagina  bool         `json:"proxima_pagina"`
 }
 
-// TestCase descreve um caso de teste HTTP.
+type FormularioListResponse struct {
+	Dados          []models.FormularioModelo `json:"dados"`
+	TotalRegistros int64                     `json:"total_registros"`
+	TotalPaginas   int                       `json:"total_paginas"`
+	ProximaPagina  bool                      `json:"proxima_pagina"`
+}
+
+// ─────────────────────────────────────────────────────────────
+// TestCase
+// ─────────────────────────────────────────────────────────────
+
 type TestCase struct {
 	Description      string
 	Method           string
@@ -46,33 +58,39 @@ type TestCase struct {
 	CheckResponse    func(t *testing.T, w *httptest.ResponseRecorder)
 }
 
-// mockDB é a conexão SQLite in-memory compartilhada entre os testes.
-var mockDB *gorm.DB
+// ─────────────────────────────────────────────────────────────
+// Shared state
+// ─────────────────────────────────────────────────────────────
 
-// testOng é uma ONG pré-inserida por mockData() para ser usada nos testes.
+var mockDB *gorm.DB
 var testOng models.Ong
 
-// mockData reinicia o banco in-memory e insere dados base para os testes.
-// Deve ser chamado no início de cada TestXxx que precisar de estado limpo.
+// ─────────────────────────────────────────────────────────────
+// mockData — banco limpo + ONG base
+// ─────────────────────────────────────────────────────────────
+
 func mockData() {
 	var err error
 	mockDB, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
-		NamingStrategy: schema.NamingStrategy{
-			SingularTable: true,
-		},
+		NamingStrategy: schema.NamingStrategy{SingularTable: true},
 	})
 	if err != nil {
 		panic("falha ao criar banco in-memory: " + err.Error())
 	}
 
-	if err := mockDB.AutoMigrate(&models.Ong{}, &models.Pet{}, &models.PetImage{}); err != nil {
+	if err := mockDB.AutoMigrate(
+		&models.Ong{},
+		&models.Pet{},
+		&models.PetImage{},
+		&models.FormularioModelo{},
+		&models.CampoFormulario{},
+		&models.RespostaFormulario{},
+	); err != nil {
 		panic("falha ao migrar models: " + err.Error())
 	}
 
-	// Substitui o db global pelo mock para que GetDB() e GetUserDB() o usem.
 	database.SetDB(mockDB)
 
-	// ONG base disponível em todos os testes via testOng.
 	testOng = models.Ong{
 		Nome:            "ONG Base",
 		Email:           "base@ong.org",
@@ -86,13 +104,15 @@ func mockData() {
 	}
 }
 
-// check interrompe o teste imediatamente se result.Error não for nil.
+// ─────────────────────────────────────────────────────────────
+// Helpers
+// ─────────────────────────────────────────────────────────────
+
 func check(t *testing.T, result *gorm.DB) {
 	t.Helper()
 	assert.NoError(t, result.Error)
 }
 
-// mustMarshal serializa v para JSON, falhando o teste em caso de erro.
 func mustMarshal(t *testing.T, v any) []byte {
 	t.Helper()
 	b, err := json.Marshal(v)
@@ -100,8 +120,10 @@ func mustMarshal(t *testing.T, v any) []byte {
 	return b
 }
 
-// newRouter monta um gin.Engine com todas as rotas do servidor real,
-// mas sem middleware de autenticação (token injetado diretamente).
+// ─────────────────────────────────────────────────────────────
+// Router
+// ─────────────────────────────────────────────────────────────
+
 func newRouter() *gin.Engine {
 	gin.SetMode(gin.TestMode)
 	r := gin.New()
@@ -111,26 +133,43 @@ func newRouter() *gin.Engine {
 			c.Set("token", "test-token")
 			if err := fn(c); err != nil {
 				status := http.StatusInternalServerError
-
 				msg := err.Error()
+
 				switch msg {
-				case "ID da ONG inválido",
-					"page inválido",
-					"limit inválido",
-					"nenhuma imagem enviada",
-					"tipo de imagem inválido",
+				case
+					// ONG
+					"ID da ONG inválido",
 					"ONG não possui logo",
+					// Pet
 					"ID do pet inválido",
 					"ID da imagem inválido",
 					"ong_id é obrigatório",
-					"o pet pode ter no máximo 5 imagens":
+					"o pet pode ter no máximo 5 imagens",
+					// Formulário / Campo
+					"ID do formulário inválido",
+					"ID do campo inválido",
+					"nome é obrigatório",
+					"configuracao.label é obrigatório",
+					"configuracao.tipo é obrigatório",
+					"o formulário não possui imagem cadastrada",
+					// Shared
+					"page inválido",
+					"limit inválido",
+					"nenhuma imagem enviada",
+					"tipo de imagem inválido":
 					status = http.StatusBadRequest
-				case "ONG não encontrada",
+
+				case
+					"ONG não encontrada",
 					"Pet não encontrado",
-					"Imagem não encontrada":
+					"Imagem não encontrada",
+					"Formulário não encontrado",
+					"Campo não encontrado":
 					status = http.StatusNotFound
+
 				case "email já cadastrado":
 					status = http.StatusConflict
+
 				default:
 					if strings.HasPrefix(msg, "body inválido") {
 						status = http.StatusBadRequest
@@ -146,6 +185,7 @@ func newRouter() *gin.Engine {
 
 	api := r.Group("/api/v1")
 	{
+		// ONGs
 		ongs := api.Group("/ongs")
 		ongs.GET("", wrap(v1.ReadOngs))
 		ongs.GET("/:id", wrap(v1.ReadOng))
@@ -155,6 +195,7 @@ func newRouter() *gin.Engine {
 		ongs.POST("/:id/logo", wrap(v1.UploadOngLogo))
 		ongs.DELETE("/:id/logo", wrap(v1.DeleteOngLogo))
 
+		// Pets
 		pets := api.Group("/pets")
 		pets.GET("", wrap(v1.ReadPets))
 		pets.GET("/:id", wrap(v1.ReadPet))
@@ -163,12 +204,28 @@ func newRouter() *gin.Engine {
 		pets.DELETE("/:id", wrap(v1.DeletePet))
 		pets.POST("/:id/imagens", wrap(v1.UploadPetImages))
 		pets.DELETE("/:id/imagens/:imageId", wrap(v1.DeletePetImage))
+
+		// Formulários
+		forms := api.Group("/formularios")
+		forms.GET("", wrap(v1.ReadFormularios))
+		forms.GET("/:id", wrap(v1.ReadFormulario))
+		forms.POST("", wrap(v1.CreateFormulario))
+		forms.PUT("/:id", wrap(v1.UpdateFormulario))
+		forms.DELETE("/:id", wrap(v1.DeleteFormulario))
+		forms.POST("/:id/imagem", wrap(v1.UploadFormularioImagem))
+		forms.DELETE("/:id/imagem", wrap(v1.DeleteFormularioImagem))
+		forms.POST("/:id/campos", wrap(v1.CreateCampoFormulario))
+		forms.PUT("/:id/campos/:campoId", wrap(v1.UpdateCampoFormulario))
+		forms.DELETE("/:id/campos/:campoId", wrap(v1.DeleteCampoFormulario))
 	}
 
 	return r
 }
 
-// runTestCases executa uma lista de TestCase contra o router de testes.
+// ─────────────────────────────────────────────────────────────
+// runTestCases
+// ─────────────────────────────────────────────────────────────
+
 func runTestCases(t *testing.T, cases []TestCase) {
 	t.Helper()
 	r := newRouter()
@@ -194,8 +251,7 @@ func runTestCases(t *testing.T, cases []TestCase) {
 
 			if tc.ExpectedErrorMsg != "" {
 				var body map[string]any
-				err := json.Unmarshal(w.Body.Bytes(), &body)
-				assert.NoError(t, err)
+				assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &body))
 				assert.Contains(t, body["error"], tc.ExpectedErrorMsg)
 			}
 
