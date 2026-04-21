@@ -1,5 +1,40 @@
 basePath: /
 definitions:
+  models.AcompanhamentoDTO:
+    properties:
+      adotante_email:
+        type: string
+      adotante_nome:
+        type: string
+      adotante_telefone:
+        type: string
+      created_at:
+        type: string
+      frequencia:
+        $ref: '#/definitions/models.TrackingFrequency'
+      id:
+        type: string
+      logs:
+        items:
+          $ref: '#/definitions/models.LogAcompanhamentoDTO'
+        type: array
+      pet_id:
+        type: string
+      pet_nome:
+        type: string
+      proxima_data:
+        type: string
+      status:
+        $ref: '#/definitions/models.AcompanhamentoStatus'
+    type: object
+  models.AcompanhamentoStatus:
+    enum:
+    - ativo
+    - finalizado
+    type: string
+    x-enum-varnames:
+    - AcompanhamentoAtivo
+    - AcompanhamentoFinalizado
   models.Banner:
     properties:
       active:
@@ -102,6 +137,19 @@ definitions:
       ong_id:
         type: string
       updated_at:
+        type: string
+    type: object
+  models.LogAcompanhamentoDTO:
+    properties:
+      acompanhamento_id:
+        type: string
+      created_at:
+        type: string
+      data_contato:
+        type: string
+      id:
+        type: string
+      notas:
         type: string
     type: object
   models.Ong:
@@ -291,6 +339,18 @@ definitions:
     - TipoCampoTelefone
     - TipoCampoData
     - TipoCampoImagem
+  models.TrackingFrequency:
+    enum:
+    - UNIQUE
+    - MONTHLY
+    - QUARTERLY
+    - BIANNUAL
+    type: string
+    x-enum-varnames:
+    - FrequencyUnique
+    - FrequencyMonthly
+    - FrequencyQuarterly
+    - FrequencyBiannual
   v1.BannerListResponse:
     properties:
       dados:
@@ -303,6 +363,26 @@ definitions:
         type: integer
       total_registros:
         type: integer
+    type: object
+  v1.CreateAcompanhamentoInput:
+    properties:
+      adotante_email:
+        type: string
+      adotante_nome:
+        type: string
+      adotante_telefone:
+        type: string
+      frequencia:
+        $ref: '#/definitions/models.TrackingFrequency'
+      pet_id:
+        type: string
+      proxima_data:
+        type: string
+    required:
+    - adotante_nome
+    - adotante_telefone
+    - frequencia
+    - pet_id
     type: object
   v1.CreateBannerInput:
     properties:
@@ -338,6 +418,17 @@ definitions:
         type: string
       ong_id:
         type: string
+    type: object
+  v1.CreateLogAcompanhamentoInput:
+    properties:
+      data_contato:
+        type: string
+      notas:
+        type: string
+      proxima_data:
+        type: string
+    required:
+    - notas
     type: object
   v1.CreateOngInput:
     properties:
@@ -515,13 +606,99 @@ definitions:
       status:
         $ref: '#/definitions/models.PedidoAdocaoStatus'
     type: object
-host: localhost:8080
 info:
   contact: {}
   description: API para gerenciar ONGs e pets
   title: OngPet API
   version: "1.0"
 paths:
+  /api/v1/acompanhamentos:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.AcompanhamentoDTO'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: Lista todos os acompanhamentos da ONG
+      tags:
+      - Acompanhamento
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Dados da adoção
+        in: body
+        name: acompanhamento
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateAcompanhamentoInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.AcompanhamentoDTO'
+      security:
+      - ApiKeyAuth: []
+      summary: Cria a configuração de acompanhamento para um pet adotado
+      tags:
+      - Acompanhamento
+  /api/v1/acompanhamentos/{id}/logs:
+    get:
+      parameters:
+      - description: ID do Acompanhamento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LogAcompanhamentoDTO'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: Busca o histórico de logs de um acompanhamento
+      tags:
+      - Acompanhamento
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do Acompanhamento (Master)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Notas do contato
+        in: body
+        name: log
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateLogAcompanhamentoInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.LogAcompanhamentoDTO'
+      security:
+      - ApiKeyAuth: []
+      summary: Registra um novo log de contato para um acompanhamento
+      tags:
+      - Acompanhamento
   /api/v1/auth/login:
     post:
       consumes:

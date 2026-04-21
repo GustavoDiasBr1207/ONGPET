@@ -15,6 +15,148 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/acompanhamentos": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Acompanhamento"
+                ],
+                "summary": "Lista todos os acompanhamentos da ONG",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.AcompanhamentoDTO"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Acompanhamento"
+                ],
+                "summary": "Cria a configuração de acompanhamento para um pet adotado",
+                "parameters": [
+                    {
+                        "description": "Dados da adoção",
+                        "name": "acompanhamento",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateAcompanhamentoInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.AcompanhamentoDTO"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/acompanhamentos/{id}/logs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Acompanhamento"
+                ],
+                "summary": "Busca o histórico de logs de um acompanhamento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Acompanhamento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LogAcompanhamentoDTO"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Acompanhamento"
+                ],
+                "summary": "Registra um novo log de contato para um acompanhamento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Acompanhamento (Master)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Notas do contato",
+                        "name": "log",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateLogAcompanhamentoInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.LogAcompanhamentoDTO"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/login": {
             "post": {
                 "description": "Faz login via Supabase e retorna tokens (access_token, etc.)",
@@ -2043,6 +2185,58 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.AcompanhamentoDTO": {
+            "type": "object",
+            "properties": {
+                "adotante_email": {
+                    "type": "string"
+                },
+                "adotante_nome": {
+                    "type": "string"
+                },
+                "adotante_telefone": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "frequencia": {
+                    "$ref": "#/definitions/models.TrackingFrequency"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LogAcompanhamentoDTO"
+                    }
+                },
+                "pet_id": {
+                    "type": "string"
+                },
+                "pet_nome": {
+                    "type": "string"
+                },
+                "proxima_data": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.AcompanhamentoStatus"
+                }
+            }
+        },
+        "models.AcompanhamentoStatus": {
+            "type": "string",
+            "enum": [
+                "ativo",
+                "finalizado"
+            ],
+            "x-enum-varnames": [
+                "AcompanhamentoAtivo",
+                "AcompanhamentoFinalizado"
+            ]
+        },
         "models.Banner": {
             "type": "object",
             "properties": {
@@ -2198,6 +2392,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LogAcompanhamentoDTO": {
+            "type": "object",
+            "properties": {
+                "acompanhamento_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "data_contato": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notas": {
                     "type": "string"
                 }
             }
@@ -2460,6 +2674,21 @@ const docTemplate = `{
                 "TipoCampoImagem"
             ]
         },
+        "models.TrackingFrequency": {
+            "type": "string",
+            "enum": [
+                "UNIQUE",
+                "MONTHLY",
+                "QUARTERLY",
+                "BIANNUAL"
+            ],
+            "x-enum-varnames": [
+                "FrequencyUnique",
+                "FrequencyMonthly",
+                "FrequencyQuarterly",
+                "FrequencyBiannual"
+            ]
+        },
         "v1.BannerListResponse": {
             "type": "object",
             "properties": {
@@ -2477,6 +2706,35 @@ const docTemplate = `{
                 },
                 "total_registros": {
                     "type": "integer"
+                }
+            }
+        },
+        "v1.CreateAcompanhamentoInput": {
+            "type": "object",
+            "required": [
+                "adotante_nome",
+                "adotante_telefone",
+                "frequencia",
+                "pet_id"
+            ],
+            "properties": {
+                "adotante_email": {
+                    "type": "string"
+                },
+                "adotante_nome": {
+                    "type": "string"
+                },
+                "adotante_telefone": {
+                    "type": "string"
+                },
+                "frequencia": {
+                    "$ref": "#/definitions/models.TrackingFrequency"
+                },
+                "pet_id": {
+                    "type": "string"
+                },
+                "proxima_data": {
+                    "type": "string"
                 }
             }
         },
@@ -2530,6 +2788,23 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "ong_id": {
+                    "type": "string"
+                }
+            }
+        },
+        "v1.CreateLogAcompanhamentoInput": {
+            "type": "object",
+            "required": [
+                "notas"
+            ],
+            "properties": {
+                "data_contato": {
+                    "type": "string"
+                },
+                "notas": {
+                    "type": "string"
+                },
+                "proxima_data": {
                     "type": "string"
                 }
             }
@@ -2814,7 +3089,7 @@ const docTemplate = `{
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
-	Host:             "localhost:8080",
+	Host:             "",
 	BasePath:         "/",
 	Schemes:          []string{},
 	Title:            "OngPet API",
