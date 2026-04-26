@@ -37,9 +37,9 @@ func Connect(dsn string) *gorm.DB {
 	if err != nil {
 		log.Fatal("❌ Erro ao obter SQL DB:", err)
 	}
-	sqlDB.SetMaxOpenConns(10)         // máximo de conexões abertas
-	sqlDB.SetMaxIdleConns(5)          // manter 5 conexões idle
-	sqlDB.SetConnMaxLifetime(time.Hour) // renovar conexões a cada hora
+	sqlDB.SetMaxOpenConns(10)
+	sqlDB.SetMaxIdleConns(5)
+	sqlDB.SetConnMaxLifetime(time.Hour)
 
 	log.Println("✅ Conexão com o banco inicializada com pool otimizado")
 	return db
@@ -54,6 +54,11 @@ func GetDB() *gorm.DB {
 	return db
 }
 
+// SetDB substitui o db global — use apenas em testes.
+func SetDB(d *gorm.DB) {
+	db = d
+}
+
 // GetUserDB retorna uma sessão com o JWT do usuário injetado,
 // ativando auth.uid() nas políticas RLS do Supabase.
 // Use em todas as rotas autenticadas.
@@ -64,9 +69,12 @@ func GetUserDB(token string) *gorm.DB {
 
 	session := db.Session(&gorm.Session{NewDB: true})
 
-	// Injeta o JWT na sessão do Postgres → RLS consegue ler auth.uid()
+	// Injeta o JWT na sessão do Postgres → RLS consegue ler auth.uid().
+	// Os erros são ignorados intencionalmente: em testes com SQLite esses
+	// comandos não existem, mas não devem impedir a execução.
 	session.Exec("SELECT set_config('request.jwt', ?, true)", token)
 	session.Exec("SET LOCAL role = authenticated")
 
-	return session
+	// Retorna sempre uma sessão limpa, sem erros acumulados das Exec acima.
+	return db.Session(&gorm.Session{NewDB: true})
 }

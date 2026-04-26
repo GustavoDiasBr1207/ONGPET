@@ -1,5 +1,40 @@
 basePath: /
 definitions:
+  models.AcompanhamentoDTO:
+    properties:
+      adotante_email:
+        type: string
+      adotante_nome:
+        type: string
+      adotante_telefone:
+        type: string
+      created_at:
+        type: string
+      frequencia:
+        $ref: '#/definitions/models.TrackingFrequency'
+      id:
+        type: string
+      logs:
+        items:
+          $ref: '#/definitions/models.LogAcompanhamentoDTO'
+        type: array
+      pet_id:
+        type: string
+      pet_nome:
+        type: string
+      proxima_data:
+        type: string
+      status:
+        $ref: '#/definitions/models.AcompanhamentoStatus'
+    type: object
+  models.AcompanhamentoStatus:
+    enum:
+    - ativo
+    - finalizado
+    type: string
+    x-enum-varnames:
+    - AcompanhamentoAtivo
+    - AcompanhamentoFinalizado
   models.Banner:
     properties:
       active:
@@ -102,6 +137,19 @@ definitions:
       ong_id:
         type: string
       updated_at:
+        type: string
+    type: object
+  models.LogAcompanhamentoDTO:
+    properties:
+      acompanhamento_id:
+        type: string
+      created_at:
+        type: string
+      data_contato:
+        type: string
+      id:
+        type: string
+      notas:
         type: string
     type: object
   models.Ong:
@@ -291,6 +339,18 @@ definitions:
     - TipoCampoTelefone
     - TipoCampoData
     - TipoCampoImagem
+  models.TrackingFrequency:
+    enum:
+    - UNIQUE
+    - MONTHLY
+    - QUARTERLY
+    - BIANNUAL
+    type: string
+    x-enum-varnames:
+    - FrequencyUnique
+    - FrequencyMonthly
+    - FrequencyQuarterly
+    - FrequencyBiannual
   v1.BannerListResponse:
     properties:
       dados:
@@ -303,6 +363,26 @@ definitions:
         type: integer
       total_registros:
         type: integer
+    type: object
+  v1.CreateAcompanhamentoInput:
+    properties:
+      adotante_email:
+        type: string
+      adotante_nome:
+        type: string
+      adotante_telefone:
+        type: string
+      frequencia:
+        $ref: '#/definitions/models.TrackingFrequency'
+      pet_id:
+        type: string
+      proxima_data:
+        type: string
+    required:
+    - adotante_nome
+    - adotante_telefone
+    - frequencia
+    - pet_id
     type: object
   v1.CreateBannerInput:
     properties:
@@ -319,25 +399,16 @@ definitions:
       title:
         type: string
     type: object
-  v1.CreateCampoInput:
+  v1.CreateLogAcompanhamentoInput:
     properties:
-      configuracao:
-        $ref: '#/definitions/models.CampoConfiguracao'
-      nome:
+      data_contato:
         type: string
-      ordem:
-        type: integer
-    type: object
-  v1.CreateFormularioModeloInput:
-    properties:
-      campos:
-        items:
-          $ref: '#/definitions/v1.CreateCampoInput'
-        type: array
-      nome:
+      notas:
         type: string
-      ong_id:
+      proxima_data:
         type: string
+    required:
+    - notas
     type: object
   v1.CreateOngInput:
     properties:
@@ -383,31 +454,6 @@ definitions:
         items:
           $ref: '#/definitions/v1.CreateRespostaInput'
         type: array
-    type: object
-  v1.CreatePetInput:
-    properties:
-      descricao:
-        type: string
-      especie:
-        type: string
-      formulario_id:
-        type: string
-      idade:
-        type: integer
-      nome:
-        type: string
-      ong_id:
-        type: string
-      peso:
-        type: number
-      porte:
-        type: string
-      raca:
-        type: string
-      regiao:
-        type: string
-      status:
-        $ref: '#/definitions/models.PetStatus'
     type: object
   v1.CreateRespostaInput:
     properties:
@@ -505,11 +551,6 @@ definitions:
       title:
         type: string
     type: object
-  v1.UpdateFormularioModeloInput:
-    properties:
-      nome:
-        type: string
-    type: object
   v1.UpdateStatusPedidoAdocaoInput:
     properties:
       status:
@@ -522,6 +563,93 @@ info:
   title: OngPet API
   version: "1.0"
 paths:
+  /api/v1/acompanhamentos:
+    get:
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.AcompanhamentoDTO'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: Lista todos os acompanhamentos da ONG
+      tags:
+      - Acompanhamento
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: Dados da adoção
+        in: body
+        name: acompanhamento
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateAcompanhamentoInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.AcompanhamentoDTO'
+      security:
+      - ApiKeyAuth: []
+      summary: Cria a configuração de acompanhamento para um pet adotado
+      tags:
+      - Acompanhamento
+  /api/v1/acompanhamentos/{id}/logs:
+    get:
+      parameters:
+      - description: ID do Acompanhamento
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            items:
+              $ref: '#/definitions/models.LogAcompanhamentoDTO'
+            type: array
+      security:
+      - ApiKeyAuth: []
+      summary: Busca o histórico de logs de um acompanhamento
+      tags:
+      - Acompanhamento
+    post:
+      consumes:
+      - application/json
+      parameters:
+      - description: ID do Acompanhamento (Master)
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Notas do contato
+        in: body
+        name: log
+        required: true
+        schema:
+          $ref: '#/definitions/v1.CreateLogAcompanhamentoInput'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            $ref: '#/definitions/models.LogAcompanhamentoDTO'
+      security:
+      - ApiKeyAuth: []
+      summary: Registra um novo log de contato para um acompanhamento
+      tags:
+      - Acompanhamento
   /api/v1/auth/login:
     post:
       consumes:
@@ -816,22 +944,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Cria um formulário com campos configuráveis para uso na adoção
-        de pets
-      parameters:
-      - description: Novo Formulário
-        in: body
-        name: formulario
-        required: true
-        schema:
-          $ref: '#/definitions/v1.CreateFormularioModeloInput'
       produces:
       - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/models.FormularioModelo'
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Cria um novo Formulário Modelo
@@ -839,7 +954,6 @@ paths:
       - FormularioModelo
   /api/v1/formularios/{id}:
     delete:
-      description: Remove o formulário e todos os campos em cascata
       parameters:
       - description: ID do Formulário
         in: path
@@ -848,14 +962,7 @@ paths:
         type: string
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Remove um Formulário Modelo
@@ -875,12 +982,6 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.FormularioModelo'
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
       security:
       - ApiKeyAuth: []
       summary: Busca um Formulário Modelo pelo ID
@@ -895,19 +996,9 @@ paths:
         name: id
         required: true
         type: string
-      - description: Dados para atualização
-        in: body
-        name: formulario
-        required: true
-        schema:
-          $ref: '#/definitions/v1.UpdateFormularioModeloInput'
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.FormularioModelo'
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Atualiza o nome de um Formulário Modelo
@@ -923,19 +1014,9 @@ paths:
         name: id
         required: true
         type: string
-      - description: Novo Campo
-        in: body
-        name: campo
-        required: true
-        schema:
-          $ref: '#/definitions/v1.CreateCampoInput'
       produces:
       - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/models.CampoFormulario'
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Adiciona um Campo ao Formulário
@@ -956,14 +1037,7 @@ paths:
         type: string
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Remove um Campo do Formulário
@@ -983,19 +1057,9 @@ paths:
         name: campoId
         required: true
         type: string
-      - description: Dados para atualização
-        in: body
-        name: campo
-        required: true
-        schema:
-          $ref: '#/definitions/v1.CreateCampoInput'
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            $ref: '#/definitions/models.CampoFormulario'
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Atualiza um Campo do Formulário
@@ -1011,22 +1075,7 @@ paths:
         type: string
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              formulario:
-                $ref: '#/definitions/models.FormularioModelo'
-              message:
-                type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Remove a imagem de capa de um Formulário
@@ -1035,43 +1084,15 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Substitui a imagem existente (se houver) e armazena a nova via
-        Supabase
       parameters:
       - description: ID do Formulário
         in: path
         name: id
         required: true
         type: string
-      - description: Imagem de capa
-        in: formData
-        name: imagem
-        required: true
-        type: file
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              formulario:
-                $ref: '#/definitions/models.FormularioModelo'
-              message:
-                type: string
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Faz upload da imagem de capa de um Formulário
@@ -1533,36 +1554,6 @@ paths:
       - PedidoAdocao
   /api/v1/pets:
     get:
-      description: Retorna todos os pets cadastrados
-      parameters:
-      - description: Filtrar por nome
-        in: query
-        name: nome
-        type: string
-      - description: Filtrar por espécie
-        in: query
-        name: especie
-        type: string
-      - description: Filtrar por porte
-        in: query
-        name: porte
-        type: string
-      - description: Filtrar por região
-        in: query
-        name: regiao
-        type: string
-      - description: Filtrar por ONG
-        in: query
-        name: ong_id
-        type: string
-      - description: 'Página (default: 1)'
-        in: query
-        name: page
-        type: integer
-      - description: 'Itens por página (default: 10)'
-        in: query
-        name: limit
-        type: integer
       produces:
       - application/json
       responses:
@@ -1576,27 +1567,9 @@ paths:
     post:
       consumes:
       - application/json
-      description: Cria um Pet no sistema
-      parameters:
-      - description: Novo Pet
-        in: body
-        name: pet
-        required: true
-        schema:
-          $ref: '#/definitions/v1.CreatePetInput'
       produces:
       - application/json
-      responses:
-        "201":
-          description: Created
-          schema:
-            $ref: '#/definitions/models.Pet'
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Cria um novo Pet
@@ -1604,7 +1577,6 @@ paths:
       - Pet
   /api/v1/pets/{id}:
     delete:
-      description: Remove um Pet pelo ID
       parameters:
       - description: ID do Pet
         in: path
@@ -1613,27 +1585,13 @@ paths:
         type: string
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Remove um Pet
       tags:
       - Pet
     get:
-      description: Retorna um Pet específico pelo ID
       parameters:
       - description: ID do Pet
         in: path
@@ -1647,49 +1605,21 @@ paths:
           description: OK
           schema:
             $ref: '#/definitions/models.Pet'
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
       summary: Busca um Pet pelo ID
       tags:
       - Pet
     put:
       consumes:
       - application/json
-      description: Atualiza os dados de um Pet pelo ID (não atualiza imagens)
       parameters:
       - description: ID do Pet
         in: path
         name: id
         required: true
         type: string
-      - description: Dados para atualização
-        in: body
-        name: pet
-        required: true
-        schema:
-          $ref: '#/definitions/v1.CreatePetInput'
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-              pet:
-                $ref: '#/definitions/models.Pet'
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Atualiza um Pet existente
@@ -1699,50 +1629,22 @@ paths:
     post:
       consumes:
       - multipart/form-data
-      description: Faz upload de até 5 imagens para o Pet pelo ID (usando Supabase)
       parameters:
       - description: ID do Pet
         in: path
         name: id
         required: true
         type: string
-      - description: Imagens do Pet (até 5)
-        in: formData
-        name: imagens
-        required: true
-        type: file
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-              pet:
-                $ref: '#/definitions/models.Pet'
-            type: object
-        "400":
-          description: Bad Request
-          schema:
-            additionalProperties:
-              type: string
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
-      summary: Adiciona imagens a um Pet existente
+      summary: Adiciona imagens a um Pet
       tags:
       - Pet
   /api/v1/pets/{id}/imagens/{imageId}:
     delete:
-      description: Remove uma imagem específica de um Pet pelo ID
       parameters:
       - description: ID do Pet
         in: path
@@ -1756,22 +1658,7 @@ paths:
         type: string
       produces:
       - application/json
-      responses:
-        "200":
-          description: OK
-          schema:
-            properties:
-              message:
-                type: string
-              pet:
-                $ref: '#/definitions/models.Pet'
-            type: object
-        "404":
-          description: Not Found
-          schema:
-            additionalProperties:
-              type: string
-            type: object
+      responses: {}
       security:
       - ApiKeyAuth: []
       summary: Remove uma imagem de um Pet

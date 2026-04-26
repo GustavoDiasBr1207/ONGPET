@@ -73,7 +73,6 @@ func ReadFormularios(c *gin.Context) error {
 	if err != nil || page <= 0 {
 		return errors.New("page inválido")
 	}
-
 	limit, err := strconv.Atoi(limitStr)
 	if err != nil || limit <= 0 {
 		return errors.New("limit inválido")
@@ -84,7 +83,7 @@ func ReadFormularios(c *gin.Context) error {
 		return err
 	}
 
-	offset := (page - 1) * limit
+	offset     := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
 	var formularios []models.FormularioModelo
@@ -116,11 +115,10 @@ func ReadFormularios(c *gin.Context) error {
 
 // @Summary Busca um Formulário Modelo pelo ID
 // @Tags FormularioModelo
-// @Produce json
 // @Security ApiKeyAuth
+// @Produce json
 // @Param id path string true "ID do Formulário"
 // @Success 200 {object} models.FormularioModelo
-// @Failure 404 {object} map[string]string
 // @Router /api/v1/formularios/{id} [get]
 func ReadFormulario(c *gin.Context) error {
 	db := database.GetUserDB(c.GetString("token"))
@@ -147,18 +145,15 @@ func ReadFormulario(c *gin.Context) error {
 }
 
 // @Summary Cria um novo Formulário Modelo
-// @Description Cria um formulário com campos configuráveis para uso na adoção de pets
 // @Tags FormularioModelo
 // @Accept json
 // @Produce json
-// @Param formulario body v1.CreateFormularioModeloInput true "Novo Formulário"
-// @Success 201 {object} models.FormularioModelo
 // @Security ApiKeyAuth
 // @Router /api/v1/formularios [post]
 func CreateFormulario(c *gin.Context) error {
 	var req CreateFormularioModeloInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
+		return fmt.Errorf("body inválido: %w", err)
 	}
 
 	req.Nome = strings.TrimSpace(req.Nome)
@@ -187,7 +182,6 @@ func CreateFormulario(c *gin.Context) error {
 		return err
 	}
 
-	// 📧 Adicionar campos padrão: Nome, Email e Telefone
 	camposPadroes := []CreateCampoInput{
 		{
 			Nome:  "Nome",
@@ -224,7 +218,6 @@ func CreateFormulario(c *gin.Context) error {
 		},
 	}
 
-	// Adiciona campos padrões com ordem 1 e 2
 	for _, campoInput := range camposPadroes {
 		campo, err := buildCampo(formulario.ID, campoInput)
 		if err != nil {
@@ -235,10 +228,9 @@ func CreateFormulario(c *gin.Context) error {
 		}
 	}
 
-	// Adiciona campos customizados com ordem começando em 3
 	for i, campoInput := range req.Campos {
 		if campoInput.Ordem == 0 {
-			campoInput.Ordem = i + 3 // Começa em 3 (após nome, email e telefone)
+			campoInput.Ordem = i + 3
 		}
 		campo, err := buildCampo(formulario.ID, campoInput)
 		if err != nil {
@@ -266,15 +258,13 @@ func CreateFormulario(c *gin.Context) error {
 // @Tags FormularioModelo
 // @Accept json
 // @Produce json
-// @Param id path string true "ID do Formulário"
-// @Param formulario body v1.UpdateFormularioModeloInput true "Dados para atualização"
-// @Success 200 {object} models.FormularioModelo
 // @Security ApiKeyAuth
+// @Param id path string true "ID do Formulário"
 // @Router /api/v1/formularios/{id} [put]
 func UpdateFormulario(c *gin.Context) error {
 	var req UpdateFormularioModeloInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
+		return fmt.Errorf("body inválido: %w", err)
 	}
 
 	db := database.GetUserDB(c.GetString("token"))
@@ -314,12 +304,10 @@ func UpdateFormulario(c *gin.Context) error {
 }
 
 // @Summary Remove um Formulário Modelo
-// @Description Remove o formulário e todos os campos em cascata
 // @Tags FormularioModelo
+// @Security ApiKeyAuth
 // @Produce json
 // @Param id path string true "ID do Formulário"
-// @Success 200 {object} object{message=string}
-// @Security ApiKeyAuth
 // @Router /api/v1/formularios/{id} [delete]
 func DeleteFormulario(c *gin.Context) error {
 	db := database.GetUserDB(c.GetString("token"))
@@ -359,20 +347,15 @@ func DeleteFormulario(c *gin.Context) error {
 }
 
 // ─────────────────────────────────────────────────────────────
-// IMAGEM DE CAPA DO FORMULÁRIO
+// IMAGEM DE CAPA
 // ─────────────────────────────────────────────────────────────
 
 // @Summary Faz upload da imagem de capa de um Formulário
-// @Description Substitui a imagem existente (se houver) e armazena a nova via Supabase
 // @Tags FormularioModelo
 // @Security ApiKeyAuth
 // @Accept multipart/form-data
 // @Produce json
-// @Param id     path     string true "ID do Formulário"
-// @Param imagem formData file   true "Imagem de capa"
-// @Success 200 {object} object{message=string,formulario=models.FormularioModelo}
-// @Failure 400 {object} map[string]string
-// @Failure 404 {object} map[string]string
+// @Param id path string true "ID do Formulário"
 // @Router /api/v1/formularios/{id}/imagem [post]
 func UploadFormularioImagem(c *gin.Context) error {
 	db := database.GetUserDB(c.GetString("token"))
@@ -399,7 +382,6 @@ func UploadFormularioImagem(c *gin.Context) error {
 		return errors.New("tipo de imagem inválido")
 	}
 
-	// Remove imagem anterior do storage (best-effort)
 	if formulario.ImagemURL != "" {
 		if objectPath, pathErr := utils.ExtractObjectPath(formulario.ImagemURL, utils.SupabaseBucketFormularios); pathErr == nil {
 			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); delErr != nil {
@@ -449,8 +431,6 @@ func UploadFormularioImagem(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Produce json
 // @Param id path string true "ID do Formulário"
-// @Success 200 {object} object{message=string,formulario=models.FormularioModelo}
-// @Failure 404 {object} map[string]string
 // @Router /api/v1/formularios/{id}/imagem [delete]
 func DeleteFormularioImagem(c *gin.Context) error {
 	db := database.GetUserDB(c.GetString("token"))
@@ -506,15 +486,13 @@ func DeleteFormularioImagem(c *gin.Context) error {
 // @Tags FormularioModelo
 // @Accept json
 // @Produce json
-// @Param id path string true "ID do Formulário"
-// @Param campo body v1.CreateCampoInput true "Novo Campo"
-// @Success 201 {object} models.CampoFormulario
 // @Security ApiKeyAuth
+// @Param id path string true "ID do Formulário"
 // @Router /api/v1/formularios/{id}/campos [post]
 func CreateCampoFormulario(c *gin.Context) error {
 	var req CreateCampoInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
+		return fmt.Errorf("body inválido: %w", err)
 	}
 
 	req.Nome = strings.TrimSpace(req.Nome)
@@ -571,16 +549,14 @@ func CreateCampoFormulario(c *gin.Context) error {
 // @Tags FormularioModelo
 // @Accept json
 // @Produce json
+// @Security ApiKeyAuth
 // @Param id path string true "ID do Formulário"
 // @Param campoId path string true "ID do Campo"
-// @Param campo body v1.CreateCampoInput true "Dados para atualização"
-// @Success 200 {object} models.CampoFormulario
-// @Security ApiKeyAuth
 // @Router /api/v1/formularios/{id}/campos/{campoId} [put]
 func UpdateCampoFormulario(c *gin.Context) error {
 	var req CreateCampoInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
+		return fmt.Errorf("body inválido: %w", err)
 	}
 
 	db := database.GetUserDB(c.GetString("token"))
@@ -630,11 +606,10 @@ func UpdateCampoFormulario(c *gin.Context) error {
 
 // @Summary Remove um Campo do Formulário
 // @Tags FormularioModelo
+// @Security ApiKeyAuth
 // @Produce json
 // @Param id path string true "ID do Formulário"
 // @Param campoId path string true "ID do Campo"
-// @Success 200 {object} object{message=string}
-// @Security ApiKeyAuth
 // @Router /api/v1/formularios/{id}/campos/{campoId} [delete]
 func DeleteCampoFormulario(c *gin.Context) error {
 	db := database.GetUserDB(c.GetString("token"))

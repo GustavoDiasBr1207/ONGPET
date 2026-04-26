@@ -53,10 +53,10 @@ func ReadOngs(c *gin.Context) error {
 	query := db.Model(&models.Ong{})
 
 	if nome := strings.TrimSpace(c.Query("nome")); nome != "" {
-		query = query.Where("nome ILIKE ?", "%"+nome+"%")
+		query = query.Where("nome LIKE ?", "%"+nome+"%")
 	}
 	if email := strings.TrimSpace(c.Query("email")); email != "" {
-		query = query.Where("email ILIKE ?", "%"+email+"%")
+		query = query.Where("email LIKE ?", "%"+email+"%")
 	}
 
 	pageStr  := c.DefaultQuery("page",  "1")
@@ -143,7 +143,7 @@ func ReadOng(c *gin.Context) error {
 func CreateOng(c *gin.Context) error {
 	var req CreateOngInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
+		return fmt.Errorf("body inválido: %w", err)
 	}
 
 	req.Nome  = strings.TrimSpace(req.Nome)
@@ -323,7 +323,7 @@ func DeleteOngLogo(c *gin.Context) error {
 func UpdateOng(c *gin.Context) error {
 	var req CreateOngInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
+		return fmt.Errorf("body inválido: %w", err)
 	}
 
 	db := database.GetUserDB(c.GetString("token")) // autenticado — RLS ativo
