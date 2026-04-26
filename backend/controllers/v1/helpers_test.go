@@ -51,6 +51,13 @@ type PedidoAdocaoListResponse struct {
 	ProximaPagina  bool                     `json:"proxima_pagina"`
 }
 
+type BannerListResponse struct {
+	Dados          []models.Banner `json:"dados"`
+	TotalRegistros int64           `json:"total_registros"`
+	TotalPaginas   int             `json:"total_paginas"`
+	ProximaPagina  bool            `json:"proxima_pagina"`
+}
+
 // ─────────────────────────────────────────────────────────────
 // TestCase
 // ─────────────────────────────────────────────────────────────
@@ -97,6 +104,7 @@ func mockData() {
 		&models.PedidoAdocao{},
 		&models.Acompanhamento{},
 		&models.LogAcompanhamento{},
+		&models.Banner{},
 	); err != nil {
 		panic("falha ao migrar models: " + err.Error())
 	}
@@ -112,6 +120,7 @@ func mockData() {
 	mockDB.Exec("DELETE FROM ong")
 	mockDB.Exec("DELETE FROM log_acompanhamento")
 	mockDB.Exec("DELETE FROM acompanhamento")
+	mockDB.Exec("DELETE FROM banner")
 
 	database.SetDB(mockDB)
 
@@ -183,6 +192,18 @@ func newRouter() *gin.Engine {
 					"status inválido. Use: pendente, aprovado, rejeitado ou cancelado",
 					// Acompanhamento
 					"ID de acompanhamento inválido",
+					// Banner
+					"ID do banner inválido",
+					"este banner não possui imagem",
+					"imagem é obrigatória",
+					"title é obrigatório",
+					"instagram_url é obrigatório",
+					"start_at é obrigatório",
+					"end_at é obrigatório",
+					"start_at deve estar no formato RFC3339 (ex: 2026-03-11T15:04:05Z)",
+					"end_at deve estar no formato RFC3339 (ex: 2026-03-11T15:04:05Z)",
+					"start_at deve estar no formato RFC3339",
+					"end_at deve estar no formato RFC3339",
 					// Shared
 					"page inválido",
 					"limit inválido",
@@ -197,7 +218,8 @@ func newRouter() *gin.Engine {
 					"Formulário não encontrado",
 					"Campo não encontrado",
 					"Pedido de adoção não encontrado",
-					"Resposta não encontrada":
+					"Resposta não encontrada",
+					"Banner não encontrado":
 					status = http.StatusNotFound
 
 				case "email já cadastrado":
@@ -272,6 +294,16 @@ func newRouter() *gin.Engine {
 		acomps.GET("", wrap(v1.ListAcompanhamentos))
 		acomps.POST("/:id/logs", wrap(v1.CreateLogAcompanhamento))
 		acomps.GET("/:id/logs", wrap(v1.GetAcompanhamentoLogs))
+
+		// Banners
+		banners := api.Group("/banners")
+		banners.GET("", wrap(v1.ReadBanners))
+		banners.GET("/:id", wrap(v1.ReadBanner))
+		banners.POST("", wrap(v1.CreateBanner))
+		banners.PUT("/:id", wrap(v1.UpdateBanner))
+		banners.DELETE("/:id", wrap(v1.DeleteBanner))
+		banners.POST("/:id/imagem", wrap(v1.UploadBannerImage))
+		banners.DELETE("/:id/imagem", wrap(v1.DeleteBannerImage))
 	}
 
 	return r
