@@ -95,6 +95,8 @@ func mockData() {
 		&models.CampoFormulario{},
 		&models.RespostaFormulario{},
 		&models.PedidoAdocao{},
+		&models.Acompanhamento{},
+		&models.LogAcompanhamento{},
 	); err != nil {
 		panic("falha ao migrar models: " + err.Error())
 	}
@@ -108,6 +110,8 @@ func mockData() {
 	mockDB.Exec("DELETE FROM pet_image")
 	mockDB.Exec("DELETE FROM pet")
 	mockDB.Exec("DELETE FROM ong")
+	mockDB.Exec("DELETE FROM log_acompanhamento")
+	mockDB.Exec("DELETE FROM acompanhamento")
 
 	database.SetDB(mockDB)
 
@@ -177,6 +181,8 @@ func newRouter() *gin.Engine {
 					"ID da resposta inválido",
 					"pet_id é obrigatório",
 					"status inválido. Use: pendente, aprovado, rejeitado ou cancelado",
+					// Acompanhamento
+					"ID de acompanhamento inválido",
 					// Shared
 					"page inválido",
 					"limit inválido",
@@ -198,10 +204,12 @@ func newRouter() *gin.Engine {
 					status = http.StatusConflict
 
 				default:
-					// Erros de binding do Gin (JSON malformado, EOF, etc.)
+					// Erros de binding do Gin: JSON malformado, EOF, campos
+					// obrigatórios faltando (validator.ValidationErrors começa com "Key:").
 					if strings.HasPrefix(msg, "body inválido") ||
 						strings.HasPrefix(msg, "invalid character") ||
 						strings.HasPrefix(msg, "invalid syntax") ||
+						strings.HasPrefix(msg, "Key:") ||
 						msg == "EOF" {
 						status = http.StatusBadRequest
 					}
@@ -257,6 +265,13 @@ func newRouter() *gin.Engine {
 		pedidos.DELETE("/:id", wrap(v1.DeletePedidoAdocao))
 		pedidos.PUT("/:id/status", wrap(v1.UpdateStatusPedidoAdocao))
 		pedidos.POST("/:pedidoId/respostas/:respostaId/imagem", wrap(v1.UploadRespostaImagem))
+
+		// Acompanhamentos
+		acomps := api.Group("/acompanhamentos")
+		acomps.POST("", wrap(v1.CreateAcompanhamento))
+		acomps.GET("", wrap(v1.ListAcompanhamentos))
+		acomps.POST("/:id/logs", wrap(v1.CreateLogAcompanhamento))
+		acomps.GET("/:id/logs", wrap(v1.GetAcompanhamentoLogs))
 	}
 
 	return r
