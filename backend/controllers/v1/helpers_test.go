@@ -44,6 +44,13 @@ type FormularioListResponse struct {
 	ProximaPagina  bool                      `json:"proxima_pagina"`
 }
 
+type PedidoAdocaoListResponse struct {
+	Dados          []models.PedidoAdocaoDTO `json:"dados"`
+	TotalRegistros int64                    `json:"total_registros"`
+	TotalPaginas   int                      `json:"total_paginas"`
+	ProximaPagina  bool                     `json:"proxima_pagina"`
+}
+
 // ─────────────────────────────────────────────────────────────
 // TestCase
 // ─────────────────────────────────────────────────────────────
@@ -71,7 +78,9 @@ var testOng models.Ong
 
 func mockData() {
 	var err error
-	mockDB, err = gorm.Open(sqlite.Open(":memory:"), &gorm.Config{
+	// cache=shared mantém o banco vivo enquanto houver pelo menos uma conexão aberta,
+	// evitando "no such table" quando GetDB() e GetUserDB() abrem sessões separadas.
+	mockDB, err = gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{SingularTable: true},
 	})
 	if err != nil {
@@ -85,9 +94,20 @@ func mockData() {
 		&models.FormularioModelo{},
 		&models.CampoFormulario{},
 		&models.RespostaFormulario{},
+		&models.PedidoAdocao{},
 	); err != nil {
 		panic("falha ao migrar models: " + err.Error())
 	}
+
+	// Limpa todas as tabelas preservando o schema.
+	// Ordem: filhas antes das pais para não violar FKs.
+	mockDB.Exec("DELETE FROM pedido_adocao")
+	mockDB.Exec("DELETE FROM resposta_formulario")
+	mockDB.Exec("DELETE FROM campo_formulario")
+	mockDB.Exec("DELETE FROM formulario_modelo")
+	mockDB.Exec("DELETE FROM pet_image")
+	mockDB.Exec("DELETE FROM pet")
+	mockDB.Exec("DELETE FROM ong")
 
 	database.SetDB(mockDB)
 
@@ -152,6 +172,11 @@ func newRouter() *gin.Engine {
 					"configuracao.label é obrigatório",
 					"configuracao.tipo é obrigatório",
 					"o formulário não possui imagem cadastrada",
+					// Pedido de Adoção
+					"ID do pedido inválido",
+					"ID da resposta inválido",
+					"pet_id é obrigatório",
+					"status inválido. Use: pendente, aprovado, rejeitado ou cancelado",
 					// Shared
 					"page inválido",
 					"limit inválido",
@@ -164,14 +189,20 @@ func newRouter() *gin.Engine {
 					"Pet não encontrado",
 					"Imagem não encontrada",
 					"Formulário não encontrado",
-					"Campo não encontrado":
+					"Campo não encontrado",
+					"Pedido de adoção não encontrado",
+					"Resposta não encontrada":
 					status = http.StatusNotFound
 
 				case "email já cadastrado":
 					status = http.StatusConflict
 
 				default:
-					if strings.HasPrefix(msg, "body inválido") {
+					// Erros de binding do Gin (JSON malformado, EOF, etc.)
+					if strings.HasPrefix(msg, "body inválido") ||
+						strings.HasPrefix(msg, "invalid character") ||
+						strings.HasPrefix(msg, "invalid syntax") ||
+						msg == "EOF" {
 						status = http.StatusBadRequest
 					}
 				}
@@ -217,6 +248,15 @@ func newRouter() *gin.Engine {
 		forms.POST("/:id/campos", wrap(v1.CreateCampoFormulario))
 		forms.PUT("/:id/campos/:campoId", wrap(v1.UpdateCampoFormulario))
 		forms.DELETE("/:id/campos/:campoId", wrap(v1.DeleteCampoFormulario))
+
+		// Pedidos de Adoção
+		pedidos := api.Group("/pedidos-adocao")
+		pedidos.GET("", wrap(v1.ReadPedidosAdocao))
+		pedidos.GET("/:id", wrap(v1.ReadPedidoAdocao))
+		pedidos.POST("", wrap(v1.CreatePedidoAdocao))
+		pedidos.DELETE("/:id", wrap(v1.DeletePedidoAdocao))
+		pedidos.PUT("/:id/status", wrap(v1.UpdateStatusPedidoAdocao))
+		pedidos.POST("/:pedidoId/respostas/:respostaId/imagem", wrap(v1.UploadRespostaImagem))
 	}
 
 	return r
