@@ -30,8 +30,29 @@ func RunMigrations() {
 
 	log.Println("✅ Migrações de tabelas finalizadas")
 
-	// Criar índices para melhorar performance
-	// Índices com WHERE deleted_at IS NULL (partial index) - muito eficiente para soft-delete
+	// ─── Corrige índices únicos da tabela ONG para respeitar soft delete ───
+	// O GORM recria esses índices simples a cada AutoMigrate, então
+	// derrubamos e recriamos como índices parciais (WHERE deleted_at IS NULL)
+	fixIndices := []string{
+		`DROP INDEX IF EXISTS public.unique_ong_owner`,
+		`DROP INDEX IF EXISTS public.uni_ong_email`,
+
+		`CREATE UNIQUE INDEX IF NOT EXISTS unique_ong_owner_active 
+		 ON public.ong (user_id) WHERE deleted_at IS NULL`,
+
+		`CREATE UNIQUE INDEX IF NOT EXISTS uni_ong_email_active 
+		 ON public.ong (email) WHERE deleted_at IS NULL`,
+	}
+
+	for _, sql := range fixIndices {
+		if err := db.Exec(sql).Error; err != nil {
+			fmt.Printf("⚠️ Aviso ao corrigir índice ONG: %v\n", err)
+		}
+	}
+
+	log.Println("✅ Índices únicos da ONG corrigidos para soft delete")
+
+	// ─── Índices de performance (partial index — soft delete) ───
 	indices := []string{
 		// PedidoAdocao
 		`CREATE INDEX IF NOT EXISTS idx_pedido_adocao_ong_id 
@@ -67,7 +88,7 @@ func RunMigrations() {
 		 ON formulario_modelo(ong_id) 
 		 WHERE deleted_at IS NULL`,
 
-		// ONG (se necessário filtrar por email)
+		// ONG
 		`CREATE INDEX IF NOT EXISTS idx_ong_email 
 		 ON ong(email) 
 		 WHERE deleted_at IS NULL`,
@@ -76,7 +97,6 @@ func RunMigrations() {
 	created := 0
 	for _, indexSQL := range indices {
 		if err := db.Exec(indexSQL).Error; err != nil {
-			// Não é erro fatal se o índice já existe
 			fmt.Printf("⚠️ Aviso ao criar índice: %v\n", err)
 		} else {
 			created++

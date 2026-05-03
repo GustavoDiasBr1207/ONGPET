@@ -18,17 +18,18 @@ import (
 )
 
 type CreatePetInput struct {
-	Nome         string           `json:"nome"`
-	Especie      string           `json:"especie"`
-	Raca         string           `json:"raca"`
-	Idade        int              `json:"idade"`
-	Descricao    string           `json:"descricao"`
-	Peso         float64          `json:"peso"`
-	Porte        string           `json:"porte"`
-	Regiao       string           `json:"regiao"`
-	FormularioID *uuid.UUID       `json:"formulario_id"`
-	OngID        uuid.UUID        `json:"ong_id"`
-	Status       models.PetStatus `json:"status"`
+	Nome         string           `json:"nome"          example:"Rex"`
+	Especie      string           `json:"especie"       example:"Cachorro"`
+	Raca         string           `json:"raca"          example:"Vira-lata"`
+	Idade        int              `json:"idade"         example:"1"`
+	Descricao    string           `json:"descricao"     example:"Pet dócil e brincalhão"`
+	Peso         float64          `json:"peso"          example:"5.5"`
+	Porte        string           `json:"porte"         example:"Médio"`
+	Regiao       string           `json:"regiao"        example:"Serra"`
+	FormularioID *string          `json:"formulario_id" example:""`
+	OngID        uuid.UUID        `json:"ong_id"        example:"6e2c2e7d-4c27-4570-b32e-72799a9e059e"`
+	Sexo         string           `json:"sexo"          example:"Macho"`
+	Status       models.PetStatus `json:"status"        example:"draft"`
 }
 
 type PetListResponse struct {
@@ -38,9 +39,29 @@ type PetListResponse struct {
 	ProximaPagina  bool         `json:"proxima_pagina"`
 }
 
+// parseFormularioID converte *string para *uuid.UUID ignorando nil e string vazia
+func parseFormularioID(s *string) (*uuid.UUID, error) {
+	if s == nil || *s == "" {
+		return nil, nil
+	}
+	parsed, err := uuid.Parse(*s)
+	if err != nil {
+		return nil, errors.New("formulario_id inválido")
+	}
+	return &parsed, nil
+}
+
 // @Summary Lista todos os Pets
+// @Description Retorna lista paginada de pets com filtros opcionais
 // @Tags Pet
 // @Produce json
+// @Param nome    query string false "Filtrar por nome"
+// @Param especie query string false "Filtrar por espécie"
+// @Param porte   query string false "Filtrar por porte"
+// @Param regiao  query string false "Filtrar por região"
+// @Param ong_id  query string false "Filtrar por ONG"
+// @Param page    query int    false "Página (default: 1)"
+// @Param limit   query int    false "Itens por página (default: 10)"
 // @Success 200 {object} v1.PetListResponse
 // @Router /api/v1/pets [get]
 func ReadPets(c *gin.Context) error {
@@ -110,10 +131,13 @@ func ReadPets(c *gin.Context) error {
 }
 
 // @Summary Busca um Pet pelo ID
+// @Description Retorna um pet específico pelo ID
 // @Tags Pet
 // @Produce json
 // @Param id path string true "ID do Pet"
 // @Success 200 {object} models.Pet
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id} [get]
 func ReadPet(c *gin.Context) error {
 	db := database.GetDB()
@@ -140,10 +164,16 @@ func ReadPet(c *gin.Context) error {
 }
 
 // @Summary Cria um novo Pet
+// @Description Cria um novo pet vinculado a uma ONG
 // @Tags Pet
 // @Accept json
 // @Produce json
 // @Security ApiKeyAuth
+// @Param pet body v1.CreatePetInput true "Dados do Pet"
+// @Success 201 {object} object{message=string,pet=models.Pet}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /api/v1/pets [post]
 func CreatePet(c *gin.Context) error {
 	var req CreatePetInput
@@ -157,6 +187,11 @@ func CreatePet(c *gin.Context) error {
 		return errors.New("ong_id é obrigatório")
 	}
 
+	formularioID, err := parseFormularioID(req.FormularioID)
+	if err != nil {
+		return err
+	}
+
 	db := database.GetUserDB(c.GetString("token"))
 
 	if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
@@ -167,20 +202,18 @@ func CreatePet(c *gin.Context) error {
 	}
 
 	pet := models.Pet{
-		Nome:      req.Nome,
-		Especie:   req.Especie,
-		Raca:      req.Raca,
-		Idade:     req.Idade,
-		Descricao: req.Descricao,
-		Peso:      req.Peso,
-		Porte:     req.Porte,
-		Regiao:    req.Regiao,
-		OngID:     req.OngID,
-		Status:    req.Status,
-	}
-
-	if req.FormularioID != nil && *req.FormularioID != uuid.Nil {
-		pet.FormularioID = req.FormularioID
+		Nome:         req.Nome,
+		Especie:      req.Especie,
+		Raca:         req.Raca,
+		Idade:        req.Idade,
+		Descricao:    req.Descricao,
+		Peso:         req.Peso,
+		Porte:        req.Porte,
+		Regiao:       req.Regiao,
+		Sexo:         req.Sexo,
+		OngID:        req.OngID,
+		Status:       req.Status,
+		FormularioID: formularioID,
 	}
 
 	if err := db.Create(&pet).Error; err != nil {
@@ -195,11 +228,16 @@ func CreatePet(c *gin.Context) error {
 }
 
 // @Summary Adiciona imagens a um Pet
+// @Description Envia até 5 imagens para um pet (máximo 5 no total)
 // @Tags Pet
 // @Security ApiKeyAuth
 // @Accept multipart/form-data
 // @Produce json
-// @Param id path string true "ID do Pet"
+// @Param id      path     string true "ID do Pet"
+// @Param imagens formData file   true "Imagens do Pet"
+// @Success 200 {object} object{message=string,pet=models.Pet}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id}/imagens [post]
 func UploadPetImages(c *gin.Context) error {
 	db := database.GetUserDB(c.GetString("token"))
@@ -295,11 +333,17 @@ func UploadPetImages(c *gin.Context) error {
 }
 
 // @Summary Atualiza um Pet existente
+// @Description Atualiza os dados de um pet pelo ID
 // @Tags Pet
 // @Security ApiKeyAuth
 // @Accept json
 // @Produce json
-// @Param id path string true "ID do Pet"
+// @Param id  path string           true "ID do Pet"
+// @Param pet body v1.CreatePetInput true "Dados para atualização"
+// @Success 200 {object} object{message=string,pet=models.Pet}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
+// @Failure 500 {object} map[string]string
 // @Router /api/v1/pets/{id} [put]
 func UpdatePet(c *gin.Context) error {
 	var req CreatePetInput
@@ -342,19 +386,21 @@ func UpdatePet(c *gin.Context) error {
 	if regiao := strings.TrimSpace(req.Regiao); regiao != "" {
 		pet.Regiao = regiao
 	}
+	if req.Sexo != "" {
+		pet.Sexo = strings.TrimSpace(req.Sexo)
+	}
 	if req.Status != "" {
 		pet.Status = models.PetStatus(req.Status)
-	}
-	if req.FormularioID != nil {
-		if *req.FormularioID == uuid.Nil {
-			pet.FormularioID = nil
-		} else {
-			pet.FormularioID = req.FormularioID
-		}
 	}
 	if req.OngID != uuid.Nil {
 		pet.OngID = req.OngID
 	}
+
+	formularioID, err := parseFormularioID(req.FormularioID)
+	if err != nil {
+		return err
+	}
+	pet.FormularioID = formularioID
 
 	if err := db.Save(&pet).Error; err != nil {
 		return err
@@ -374,10 +420,14 @@ func UpdatePet(c *gin.Context) error {
 }
 
 // @Summary Remove um Pet
+// @Description Remove um pet pelo ID
 // @Tags Pet
 // @Security ApiKeyAuth
 // @Produce json
 // @Param id path string true "ID do Pet"
+// @Success 200 {object} object{message=string}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id} [delete]
 func DeletePet(c *gin.Context) error {
 	db := database.GetUserDB(c.GetString("token"))
@@ -400,11 +450,15 @@ func DeletePet(c *gin.Context) error {
 }
 
 // @Summary Remove uma imagem de um Pet
+// @Description Remove uma imagem específica de um pet
 // @Tags Pet
 // @Security ApiKeyAuth
 // @Produce json
-// @Param id path string true "ID do Pet"
+// @Param id      path string true "ID do Pet"
 // @Param imageId path string true "ID da Imagem"
+// @Success 200 {object} object{message=string,pet=models.Pet}
+// @Failure 400 {object} map[string]string
+// @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id}/imagens/{imageId} [delete]
 func DeletePetImage(c *gin.Context) error {
 	db := database.GetUserDB(c.GetString("token"))

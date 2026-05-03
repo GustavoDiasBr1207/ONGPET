@@ -28,50 +28,35 @@ func main() {
 		log.Println("⚠️ .env não encontrado, usando variáveis do sistema")
 	}
 
-	// 🔍 Debug: imprime as variáveis de ambiente
 	debugEnv()
 
-	// 🔌 Conexão única — RLS controlado pelo JWT injetado em cada sessão
 	db := database.Connect(os.Getenv("DATABASE_URL"))
 
 	utils.InitSupabase()
 
-	// 📧 Inicializar mailer para envio de emails
 	if err := utils.InitMailer(); err != nil {
 		log.Println("⚠️ Falha ao inicializar mailer:", err)
 	}
 
-	// 💬 Inicializar WhatsApp service para envio de mensagens
 	if err := utils.InitWhatsAppService(); err != nil {
 		log.Println("⚠️ Falha ao inicializar WhatsApp service:", err)
 	}
 
-	// 📅 Iniciar agendador de lembretes de acompanhamento (roda às 19:05 BRT)
 	utils.StartAcompanhamentoReminderScheduler()
 
 	err := db.AutoMigrate(
-		// base
 		&models.Ong{},
-
-		// dependem de Ong
 		&models.Pet{},
 		&models.PetImage{},
 		&models.PedidoAdocao{},
-
-		// banner
 		&models.Banner{},
-
-		// formulário
 		&models.FormularioModelo{},
 		&models.CampoFormulario{},
-
-		// depende de PedidoAdocao + CampoFormulario
 		&models.RespostaFormulario{},
 	)
 
 	if err != nil {
 		errMsg := err.Error()
-
 		if strings.Contains(errMsg, "already exists") ||
 			strings.Contains(errMsg, "42P07") {
 			log.Println("⚠️ Tabelas já existem, ignorando AutoMigrate")
@@ -80,7 +65,8 @@ func main() {
 		}
 	}
 
-	// 🔧 Rodar migrações de tabelas e índices
+	// 🔧 Roda APÓS o AutoMigrate para garantir que índices parciais
+	// sobrescrevam qualquer constraint recriada pelo GORM
 	database.RunMigrations()
 
 	r := controllers.SetupRoutes()
