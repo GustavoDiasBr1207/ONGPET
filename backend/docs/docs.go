@@ -15,6 +15,148 @@ const docTemplate = `{
     "host": "{{.Host}}",
     "basePath": "{{.BasePath}}",
     "paths": {
+        "/api/v1/acompanhamentos": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Acompanhamento"
+                ],
+                "summary": "Lista todos os acompanhamentos da ONG",
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.AcompanhamentoDTO"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Acompanhamento"
+                ],
+                "summary": "Cria a configuração de acompanhamento para um pet adotado",
+                "parameters": [
+                    {
+                        "description": "Dados da adoção",
+                        "name": "acompanhamento",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateAcompanhamentoInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.AcompanhamentoDTO"
+                        }
+                    }
+                }
+            }
+        },
+        "/api/v1/acompanhamentos/{id}/logs": {
+            "get": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Acompanhamento"
+                ],
+                "summary": "Busca o histórico de logs de um acompanhamento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Acompanhamento",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    }
+                ],
+                "responses": {
+                    "200": {
+                        "description": "OK",
+                        "schema": {
+                            "type": "array",
+                            "items": {
+                                "$ref": "#/definitions/models.LogAcompanhamentoDTO"
+                            }
+                        }
+                    }
+                }
+            },
+            "post": {
+                "security": [
+                    {
+                        "ApiKeyAuth": []
+                    }
+                ],
+                "consumes": [
+                    "application/json"
+                ],
+                "produces": [
+                    "application/json"
+                ],
+                "tags": [
+                    "Acompanhamento"
+                ],
+                "summary": "Registra um novo log de contato para um acompanhamento",
+                "parameters": [
+                    {
+                        "type": "string",
+                        "description": "ID do Acompanhamento (Master)",
+                        "name": "id",
+                        "in": "path",
+                        "required": true
+                    },
+                    {
+                        "description": "Notas do contato",
+                        "name": "log",
+                        "in": "body",
+                        "required": true,
+                        "schema": {
+                            "$ref": "#/definitions/v1.CreateLogAcompanhamentoInput"
+                        }
+                    }
+                ],
+                "responses": {
+                    "201": {
+                        "description": "Created",
+                        "schema": {
+                            "$ref": "#/definitions/models.LogAcompanhamentoDTO"
+                        }
+                    }
+                }
+            }
+        },
         "/api/v1/auth/login": {
             "post": {
                 "description": "Faz login via Supabase e retorna tokens (access_token, etc.)",
@@ -473,7 +615,6 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Cria um formulário com campos configuráveis para uso na adoção de pets",
                 "consumes": [
                     "application/json"
                 ],
@@ -484,25 +625,7 @@ const docTemplate = `{
                     "FormularioModelo"
                 ],
                 "summary": "Cria um novo Formulário Modelo",
-                "parameters": [
-                    {
-                        "description": "Novo Formulário",
-                        "name": "formulario",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v1.CreateFormularioModeloInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/models.FormularioModelo"
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/formularios/{id}": {
@@ -534,15 +657,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/models.FormularioModelo"
                         }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
                     }
                 }
             },
@@ -569,25 +683,9 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Dados para atualização",
-                        "name": "formulario",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v1.UpdateFormularioModeloInput"
-                        }
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.FormularioModelo"
-                        }
-                    }
-                }
+                "responses": {}
             },
             "delete": {
                 "security": [
@@ -595,7 +693,6 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Remove o formulário e todos os campos em cascata",
                 "produces": [
                     "application/json"
                 ],
@@ -612,19 +709,7 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/formularios/{id}/campos": {
@@ -651,25 +736,9 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Novo Campo",
-                        "name": "campo",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v1.CreateCampoInput"
-                        }
                     }
                 ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/models.CampoFormulario"
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/formularios/{id}/campos/{campoId}": {
@@ -703,25 +772,9 @@ const docTemplate = `{
                         "name": "campoId",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Dados para atualização",
-                        "name": "campo",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v1.CreateCampoInput"
-                        }
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "$ref": "#/definitions/models.CampoFormulario"
-                        }
-                    }
-                }
+                "responses": {}
             },
             "delete": {
                 "security": [
@@ -752,19 +805,7 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/formularios/{id}/imagem": {
@@ -774,7 +815,6 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Substitui a imagem existente (se houver) e armazena a nova via Supabase",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -792,49 +832,9 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": "Imagem de capa",
-                        "name": "imagem",
-                        "in": "formData",
-                        "required": true
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "formulario": {
-                                    "$ref": "#/definitions/models.FormularioModelo"
-                                },
-                                "message": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             },
             "delete": {
                 "security": [
@@ -858,31 +858,7 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "formulario": {
-                                    "$ref": "#/definitions/models.FormularioModelo"
-                                },
-                                "message": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/ongs": {
@@ -1584,7 +1560,6 @@ const docTemplate = `{
         },
         "/api/v1/pets": {
             "get": {
-                "description": "Retorna todos os pets cadastrados",
                 "produces": [
                     "application/json"
                 ],
@@ -1592,50 +1567,6 @@ const docTemplate = `{
                     "Pet"
                 ],
                 "summary": "Lista todos os Pets",
-                "parameters": [
-                    {
-                        "type": "string",
-                        "description": "Filtrar por nome",
-                        "name": "nome",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filtrar por espécie",
-                        "name": "especie",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filtrar por porte",
-                        "name": "porte",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filtrar por região",
-                        "name": "regiao",
-                        "in": "query"
-                    },
-                    {
-                        "type": "string",
-                        "description": "Filtrar por ONG",
-                        "name": "ong_id",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Página (default: 1)",
-                        "name": "page",
-                        "in": "query"
-                    },
-                    {
-                        "type": "integer",
-                        "description": "Itens por página (default: 10)",
-                        "name": "limit",
-                        "in": "query"
-                    }
-                ],
                 "responses": {
                     "200": {
                         "description": "OK",
@@ -1651,7 +1582,6 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Cria um Pet no sistema",
                 "consumes": [
                     "application/json"
                 ],
@@ -1662,39 +1592,11 @@ const docTemplate = `{
                     "Pet"
                 ],
                 "summary": "Cria um novo Pet",
-                "parameters": [
-                    {
-                        "description": "Novo Pet",
-                        "name": "pet",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v1.CreatePetInput"
-                        }
-                    }
-                ],
-                "responses": {
-                    "201": {
-                        "description": "Created",
-                        "schema": {
-                            "$ref": "#/definitions/models.Pet"
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/pets/{id}": {
             "get": {
-                "description": "Retorna um Pet específico pelo ID",
                 "produces": [
                     "application/json"
                 ],
@@ -1717,15 +1619,6 @@ const docTemplate = `{
                         "schema": {
                             "$ref": "#/definitions/models.Pet"
                         }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
                     }
                 }
             },
@@ -1735,7 +1628,6 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Atualiza os dados de um Pet pelo ID (não atualiza imagens)",
                 "consumes": [
                     "application/json"
                 ],
@@ -1753,42 +1645,9 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "description": "Dados para atualização",
-                        "name": "pet",
-                        "in": "body",
-                        "required": true,
-                        "schema": {
-                            "$ref": "#/definitions/v1.CreatePetInput"
-                        }
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "pet": {
-                                    "$ref": "#/definitions/models.Pet"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             },
             "delete": {
                 "security": [
@@ -1796,7 +1655,6 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Remove um Pet pelo ID",
                 "produces": [
                     "application/json"
                 ],
@@ -1813,28 +1671,7 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/pets/{id}/imagens": {
@@ -1844,7 +1681,6 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Faz upload de até 5 imagens para o Pet pelo ID (usando Supabase)",
                 "consumes": [
                     "multipart/form-data"
                 ],
@@ -1854,7 +1690,7 @@ const docTemplate = `{
                 "tags": [
                     "Pet"
                 ],
-                "summary": "Adiciona imagens a um Pet existente",
+                "summary": "Adiciona imagens a um Pet",
                 "parameters": [
                     {
                         "type": "string",
@@ -1862,49 +1698,9 @@ const docTemplate = `{
                         "name": "id",
                         "in": "path",
                         "required": true
-                    },
-                    {
-                        "type": "file",
-                        "description": "Imagens do Pet (até 5)",
-                        "name": "imagens",
-                        "in": "formData",
-                        "required": true
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "pet": {
-                                    "$ref": "#/definitions/models.Pet"
-                                }
-                            }
-                        }
-                    },
-                    "400": {
-                        "description": "Bad Request",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/pets/{id}/imagens/{imageId}": {
@@ -1914,7 +1710,6 @@ const docTemplate = `{
                         "ApiKeyAuth": []
                     }
                 ],
-                "description": "Remove uma imagem específica de um Pet pelo ID",
                 "produces": [
                     "application/json"
                 ],
@@ -1938,31 +1733,7 @@ const docTemplate = `{
                         "required": true
                     }
                 ],
-                "responses": {
-                    "200": {
-                        "description": "OK",
-                        "schema": {
-                            "type": "object",
-                            "properties": {
-                                "message": {
-                                    "type": "string"
-                                },
-                                "pet": {
-                                    "$ref": "#/definitions/models.Pet"
-                                }
-                            }
-                        }
-                    },
-                    "404": {
-                        "description": "Not Found",
-                        "schema": {
-                            "type": "object",
-                            "additionalProperties": {
-                                "type": "string"
-                            }
-                        }
-                    }
-                }
+                "responses": {}
             }
         },
         "/api/v1/test/email": {
@@ -2043,6 +1814,58 @@ const docTemplate = `{
         }
     },
     "definitions": {
+        "models.AcompanhamentoDTO": {
+            "type": "object",
+            "properties": {
+                "adotante_email": {
+                    "type": "string"
+                },
+                "adotante_nome": {
+                    "type": "string"
+                },
+                "adotante_telefone": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "frequencia": {
+                    "$ref": "#/definitions/models.TrackingFrequency"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "logs": {
+                    "type": "array",
+                    "items": {
+                        "$ref": "#/definitions/models.LogAcompanhamentoDTO"
+                    }
+                },
+                "pet_id": {
+                    "type": "string"
+                },
+                "pet_nome": {
+                    "type": "string"
+                },
+                "proxima_data": {
+                    "type": "string"
+                },
+                "status": {
+                    "$ref": "#/definitions/models.AcompanhamentoStatus"
+                }
+            }
+        },
+        "models.AcompanhamentoStatus": {
+            "type": "string",
+            "enum": [
+                "ativo",
+                "finalizado"
+            ],
+            "x-enum-varnames": [
+                "AcompanhamentoAtivo",
+                "AcompanhamentoFinalizado"
+            ]
+        },
         "models.Banner": {
             "type": "object",
             "properties": {
@@ -2198,6 +2021,26 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "models.LogAcompanhamentoDTO": {
+            "type": "object",
+            "properties": {
+                "acompanhamento_id": {
+                    "type": "string"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "data_contato": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "notas": {
                     "type": "string"
                 }
             }
@@ -2460,6 +2303,21 @@ const docTemplate = `{
                 "TipoCampoImagem"
             ]
         },
+        "models.TrackingFrequency": {
+            "type": "string",
+            "enum": [
+                "UNIQUE",
+                "MONTHLY",
+                "QUARTERLY",
+                "BIANNUAL"
+            ],
+            "x-enum-varnames": [
+                "FrequencyUnique",
+                "FrequencyMonthly",
+                "FrequencyQuarterly",
+                "FrequencyBiannual"
+            ]
+        },
         "v1.BannerListResponse": {
             "type": "object",
             "properties": {
@@ -2477,6 +2335,35 @@ const docTemplate = `{
                 },
                 "total_registros": {
                     "type": "integer"
+                }
+            }
+        },
+        "v1.CreateAcompanhamentoInput": {
+            "type": "object",
+            "required": [
+                "adotante_nome",
+                "adotante_telefone",
+                "frequencia",
+                "pet_id"
+            ],
+            "properties": {
+                "adotante_email": {
+                    "type": "string"
+                },
+                "adotante_nome": {
+                    "type": "string"
+                },
+                "adotante_telefone": {
+                    "type": "string"
+                },
+                "frequencia": {
+                    "$ref": "#/definitions/models.TrackingFrequency"
+                },
+                "pet_id": {
+                    "type": "string"
+                },
+                "proxima_data": {
+                    "type": "string"
                 }
             }
         },
@@ -2503,33 +2390,19 @@ const docTemplate = `{
                 }
             }
         },
-        "v1.CreateCampoInput": {
+        "v1.CreateLogAcompanhamentoInput": {
             "type": "object",
+            "required": [
+                "notas"
+            ],
             "properties": {
-                "configuracao": {
-                    "$ref": "#/definitions/models.CampoConfiguracao"
-                },
-                "nome": {
+                "data_contato": {
                     "type": "string"
                 },
-                "ordem": {
-                    "type": "integer"
-                }
-            }
-        },
-        "v1.CreateFormularioModeloInput": {
-            "type": "object",
-            "properties": {
-                "campos": {
-                    "type": "array",
-                    "items": {
-                        "$ref": "#/definitions/v1.CreateCampoInput"
-                    }
-                },
-                "nome": {
+                "notas": {
                     "type": "string"
                 },
-                "ong_id": {
+                "proxima_data": {
                     "type": "string"
                 }
             }
@@ -2597,44 +2470,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/v1.CreateRespostaInput"
                     }
-                }
-            }
-        },
-        "v1.CreatePetInput": {
-            "type": "object",
-            "properties": {
-                "descricao": {
-                    "type": "string"
-                },
-                "especie": {
-                    "type": "string"
-                },
-                "formulario_id": {
-                    "type": "string"
-                },
-                "idade": {
-                    "type": "integer"
-                },
-                "nome": {
-                    "type": "string"
-                },
-                "ong_id": {
-                    "type": "string"
-                },
-                "peso": {
-                    "type": "number"
-                },
-                "porte": {
-                    "type": "string"
-                },
-                "raca": {
-                    "type": "string"
-                },
-                "regiao": {
-                    "type": "string"
-                },
-                "status": {
-                    "$ref": "#/definitions/models.PetStatus"
                 }
             }
         },
@@ -2781,14 +2616,6 @@ const docTemplate = `{
                     "type": "string"
                 },
                 "title": {
-                    "type": "string"
-                }
-            }
-        },
-        "v1.UpdateFormularioModeloInput": {
-            "type": "object",
-            "properties": {
-                "nome": {
                     "type": "string"
                 }
             }

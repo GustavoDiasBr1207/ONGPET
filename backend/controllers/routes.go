@@ -22,6 +22,7 @@ func SetupRoutes() *gin.Engine {
 			"https://adote-serra.vercel.app",
 			"https://adote-serra-96i7unxjt-biiel027s-projects.vercel.app", // ← adicionar
 			"http://localhost:3000",
+			"http://localhost:3001",
 			"http://localhost:5173",
 			"https://ongpet-n9z9.onrender.com",
 		},
@@ -96,6 +97,12 @@ func SetupRoutes() *gin.Engine {
 		api.PUT("/pedidos-adocao/:id/status", RequireAuth(), Handle(v1.UpdateStatusPedidoAdocao))
 		api.DELETE("/pedidos-adocao/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
 		api.POST("/pedidos-adocao/:pedidoId/respostas/:respostaId/imagem", Handle(v1.UploadRespostaImagem))
+
+		// Acompanhamento
+		api.POST("/acompanhamentos", RequireAuth(), Handle(v1.CreateAcompanhamento))
+		api.GET("/acompanhamentos", RequireAuth(), Handle(v1.ListAcompanhamentos))
+		api.POST("/acompanhamentos/:id/logs", RequireAuth(), Handle(v1.CreateLogAcompanhamento))
+		api.GET("/acompanhamentos/:id/logs", RequireAuth(), Handle(v1.GetAcompanhamentoLogs))
 
 		// Testes de Email
 		api.GET("/test/email-config", Handle(v1.CheckEmailConfig))

@@ -24,21 +24,23 @@ import (
 // ─────────────────────────────────────────────────────────────
 
 type CreateBannerInput struct {
-	Title        string `json:"title"`
-	InstagramURL string `json:"instagram_url"`
-	StartAt      string `json:"start_at"`
-	EndAt        string `json:"end_at"`
-	Active       *bool  `json:"active"`
-	Position     *int   `json:"position"`
+	Title        string    `json:"title"`
+	InstagramURL string    `json:"instagram_url"`
+	StartAt      string    `json:"start_at"`
+	EndAt        string    `json:"end_at"`
+	Active       *bool     `json:"active"`
+	Position     *int      `json:"position"`
+	OngID        uuid.UUID `json:"ong_id"`
 }
 
 type UpdateBannerInput struct {
-	Title        *string `json:"title"`
-	InstagramURL *string `json:"instagram_url"`
-	StartAt      *string `json:"start_at"`
-	EndAt        *string `json:"end_at"`
-	Active       *bool   `json:"active"`
-	Position     *int    `json:"position"`
+	Title        *string    `json:"title"`
+	InstagramURL *string    `json:"instagram_url"`
+	StartAt      *string    `json:"start_at"`
+	EndAt        *string    `json:"end_at"`
+	Active       *bool      `json:"active"`
+	Position     *int       `json:"position"`
+	OngID        *uuid.UUID `json:"ong_id"`
 }
 
 type BannerListResponse struct {
@@ -70,6 +72,10 @@ func ReadBanners(c *gin.Context) error {
 	if activeStr := strings.TrimSpace(c.Query("active")); activeStr != "" {
 		active := !strings.EqualFold(activeStr, "false") && activeStr != "0"
 		query = query.Where("active = ?", active)
+	}
+
+	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
+		query = query.Where("ong_id = ?", ongID)
 	}
 
 	if vigente := strings.TrimSpace(c.Query("vigente")); vigente == "true" || vigente == "1" {
@@ -199,6 +205,10 @@ func CreateBanner(c *gin.Context) error {
 		return errors.New("end_at deve estar no formato RFC3339 (ex: 2026-03-11T15:04:05Z)")
 	}
 
+	if req.OngID == uuid.Nil {
+		return errors.New("ong_id é obrigatório")
+	}
+
 	active := true
 	if req.Active != nil {
 		active = *req.Active
@@ -211,6 +221,13 @@ func CreateBanner(c *gin.Context) error {
 
 	db := database.GetDB()
 
+	if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			return errors.New("ONG não encontrada")
+		}
+		return err
+	}
+
 	banner := models.Banner{
 		Title:        req.Title,
 		InstagramURL: req.InstagramURL,
@@ -218,6 +235,7 @@ func CreateBanner(c *gin.Context) error {
 		EndAt:        endAt,
 		Active:       active,
 		Position:     position,
+		OngID:        &req.OngID,
 	}
 
 	if err := db.Create(&banner).Error; err != nil {
@@ -382,6 +400,9 @@ func UpdateBanner(c *gin.Context) error {
 	}
 	if req.Position != nil {
 		banner.Position = *req.Position
+	}
+	if req.OngID != nil && *req.OngID != uuid.Nil {
+		banner.OngID = req.OngID
 	}
 
 	if err := db.Save(&banner).Error; err != nil {

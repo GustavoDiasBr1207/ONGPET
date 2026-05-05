@@ -241,17 +241,20 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	// 📧 Enviar email para a ONG sobre nova solicitação de adoção
+	// 📧 Enviar email e 💬 WhatsApp para a ONG sobre nova solicitação de adoção
 	go func() {
 		var ong models.Ong
 		if err := db.First(&ong, "id = ?", req.OngID).Error; err == nil {
 			requesterName := "Novo solicitante"
+			var solicitantePhone string
 			
-			// Tenta buscar o nome do solicitante nas respostas do formulário
+			// Tenta buscar o nome e telefone do solicitante nas respostas do formulário
 			for _, resposta := range pedido.Respostas {
 				if resposta.CampoFormulario.Nome == "Nome" || resposta.CampoFormulario.Nome == "nome" {
 					requesterName = resposta.Valor
-					break
+				}
+				if resposta.CampoFormulario.Nome == "Telefone" || resposta.CampoFormulario.Nome == "telefone" {
+					solicitantePhone = resposta.Valor
 				}
 			}
 			
@@ -289,6 +292,20 @@ func CreatePedidoAdocao(c *gin.Context) error {
 				} else {
 					fmt.Println("✅ Email enviado para ONG:", ong.Email)
 				}
+			}
+			
+			// 💬 Enviar WhatsApp para ONG sobre novo pedido (assíncrono)
+			if ong.Telefone != "" {
+				utils.SendWhatsAppAdoptionRequest(ong.Telefone, pet.Nome, requesterName, ong.Nome)
+			} else {
+				fmt.Println("⚠️ Telefone da ONG não configurado, WhatsApp não enviado")
+			}
+			
+			// 💬 Enviar confirmação WhatsApp para solicitante (assíncrono)
+			if solicitantePhone != "" {
+				utils.SendWhatsAppAdoptionConfirmation(solicitantePhone, requesterName, pet.Nome, ong.Nome)
+			} else {
+				fmt.Println("⚠️ Telefone do solicitante não encontrado nas respostas, confirmação WhatsApp não enviada")
 			}
 		}
 	}()
@@ -497,13 +514,14 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return err
 	}
 
-	// 📧 Enviar email para o solicitante quando status mudar para aprovado ou rejeitado
+	// 📧 Enviar email e 💬 WhatsApp para o solicitante quando status mudar para aprovado ou rejeitado
 	if (req.Status == models.PedidoAdocaoAprovado || req.Status == models.PedidoAdocaoRejeitado) &&
 		oldStatus == models.PedidoAdocaoPendente {
 		go func() {
-			// Extrai email e nome do solicitante das respostas
+			// Extrai email, nome e telefone do solicitante das respostas
 			var solicitantEmail string
 			var solicitanteName string
+			var solicitantePhone string
 			
 			for _, resposta := range pedido.Respostas {
 				if resposta.CampoFormulario.Nome == "Email" {
@@ -512,44 +530,68 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 				if resposta.CampoFormulario.Nome == "Nome" {
 					solicitanteName = resposta.Valor
 				}
+				if resposta.CampoFormulario.Nome == "Telefone" || resposta.CampoFormulario.Nome == "telefone" {
+					solicitantePhone = resposta.Valor
+				}
 			}
 			
-			// Se não encontrou email, não envia
+			// Se não encontrou email, não envia email
 			if solicitantEmail == "" {
 				fmt.Println("⚠️ Email do solicitante não encontrado nas respostas do formulário")
-				return
-			}
-			
-			var subject, body string
-			
-			if req.Status == models.PedidoAdocaoAprovado {
-				subject, body = utils.NewAdoptionApprovedEmail(
-					solicitanteName,
-					pedido.Pet.Nome,
-					pedido.Ong.Nome,
-					pedido.Ong.Telefone,
-				)
 			} else {
-				subject, body = utils.NewAdoptionRejectedEmail(
-					solicitanteName,
-					pedido.Pet.Nome,
-					pedido.Ong.Nome,
-					"Infelizmente sua solicitação de adoção foi rejeitada.",
-				)
+				var subject, body string
+				
+				if req.Status == models.PedidoAdocaoAprovado {
+					subject, body = utils.NewAdoptionApprovedEmail(
+						solicitanteName,
+						pedido.Pet.Nome,
+						pedido.Ong.Nome,
+						pedido.Ong.Telefone,
+					)
+				} else {
+					subject, body = utils.NewAdoptionRejectedEmail(
+						solicitanteName,
+						pedido.Pet.Nome,
+						pedido.Ong.Nome,
+						"Infelizmente sua solicitação de adoção foi rejeitada.",
+					)
+				}
+				
+				// Envia para o email do solicitante
+				mailer := utils.GetMailer()
+				if mailer != nil {
+					err := mailer.Send([]string{solicitantEmail}, subject, body)
+					if err != nil {
+						fmt.Println("⚠️ Erro ao enviar email para solicitante:", err)
+					} else {
+						statusMsg := "aprovado"
+						if req.Status == models.PedidoAdocaoRejeitado {
+							statusMsg = "rejeitado"
+						}
+						fmt.Printf("✅ Email de %s enviado para: %s\n", statusMsg, solicitantEmail)
+					}
+				}
 			}
 			
-			// Envia para o email do solicitante
-			mailer := utils.GetMailer()
-			if mailer != nil {
-				err := mailer.Send([]string{solicitantEmail}, subject, body)
-				if err != nil {
-					fmt.Println("⚠️ Erro ao enviar email para solicitante:", err)
-				} else {
-					statusMsg := "aprovado"
-					if req.Status == models.PedidoAdocaoRejeitado {
-						statusMsg = "rejeitado"
-					}
-					fmt.Printf("✅ Email de %s enviado para: %s\n", statusMsg, solicitantEmail)
+			// 💬 Enviar WhatsApp para solicitante (assíncrono)
+			if solicitantePhone == "" {
+				fmt.Println("⚠️ Telefone do solicitante não encontrado nas respostas, WhatsApp não enviado")
+			} else {
+				if req.Status == models.PedidoAdocaoAprovado {
+					utils.SendWhatsAppAdoptionApproved(
+						solicitantePhone,
+						solicitanteName,
+						pedido.Pet.Nome,
+						pedido.Ong.Nome,
+						pedido.Ong.Telefone,
+					)
+				} else if req.Status == models.PedidoAdocaoRejeitado {
+					utils.SendWhatsAppAdoptionRejected(
+						solicitantePhone,
+						solicitanteName,
+						pedido.Pet.Nome,
+						pedido.Ong.Nome,
+					)
 				}
 			}
 		}()

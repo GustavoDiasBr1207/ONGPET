@@ -53,10 +53,10 @@ func ReadOngs(c *gin.Context) error {
 	query := db.Model(&models.Ong{})
 
 	if nome := strings.TrimSpace(c.Query("nome")); nome != "" {
-		query = query.Where("nome ILIKE ?", "%"+nome+"%")
+		query = query.Where("nome LIKE ?", "%"+nome+"%")
 	}
 	if email := strings.TrimSpace(c.Query("email")); email != "" {
-		query = query.Where("email ILIKE ?", "%"+email+"%")
+		query = query.Where("email LIKE ?", "%"+email+"%")
 	}
 
 	pageStr  := c.DefaultQuery("page",  "1")
@@ -143,15 +143,34 @@ func ReadOng(c *gin.Context) error {
 func CreateOng(c *gin.Context) error {
 	var req CreateOngInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
+		return fmt.Errorf("body inválido: %w", err)
 	}
 
 	req.Nome  = strings.TrimSpace(req.Nome)
 	req.Email = strings.TrimSpace(req.Email)
 
-	db := database.GetUserDB(c.GetString("token")) // autenticado — RLS ativo
+	db := database.GetUserDB(c.GetString("token"))
 
-	if err := db.Where("email = ?", req.Email).First(&models.Ong{}).Error; err == nil {
+	userIDRaw, exists := c.Get("user_id")
+	if !exists {
+		return errors.New("usuário não autenticado")
+	}
+	userID, err := uuid.Parse(fmt.Sprintf("%v", userIDRaw))
+	if err != nil {
+		return errors.New("user_id inválido no token")
+	}
+
+	// Verifica se o usuário já possui uma ONG ativa (não deletada)
+	var existing models.Ong
+	if err := db.Where("user_id = ? AND deleted_at IS NULL", userID).First(&existing).Error; err == nil {
+		return gin.Error{
+			Err:  errors.New("usuário já possui uma ONG cadastrada"),
+			Type: gin.ErrorTypePublic,
+		}
+	}
+
+	// Verifica se o e-mail já está em uso por outra ONG ativa
+	if err := db.Where("email = ? AND deleted_at IS NULL", req.Email).First(&models.Ong{}).Error; err == nil {
 		return gin.Error{
 			Err:  errors.New("email já cadastrado"),
 			Type: gin.ErrorTypePublic,
@@ -169,10 +188,21 @@ func CreateOng(c *gin.Context) error {
 		NomeResponsavel: req.NomeResponsavel,
 		Instagram:       req.Instagram,
 		Regiao:          req.Regiao,
+		UserID:          userID,
 	}
 
 	if err := db.Create(&ong).Error; err != nil {
 		return err
+	}
+
+	// Atualiza os metadados do usuário no Supabase Auth
+	metaErr := utils.UpdateUserOngMetadata(userID.String(), utils.OngMetadata{
+		OngID:    ong.ID.String(),
+		OngNome:  ong.Nome,
+		OngEmail: ong.Email,
+	})
+	if metaErr != nil {
+		fmt.Printf("⚠️ Aviso: não foi possível atualizar metadata do usuário: %s\n", metaErr.Error())
 	}
 
 	c.JSON(http.StatusCreated, gin.H{
@@ -323,7 +353,7 @@ func DeleteOngLogo(c *gin.Context) error {
 func UpdateOng(c *gin.Context) error {
 	var req CreateOngInput
 	if err := c.ShouldBindJSON(&req); err != nil {
-		return err
+		return fmt.Errorf("body inválido: %w", err)
 	}
 
 	db := database.GetUserDB(c.GetString("token")) // autenticado — RLS ativo
