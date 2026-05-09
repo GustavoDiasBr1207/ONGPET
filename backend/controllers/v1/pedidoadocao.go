@@ -247,23 +247,35 @@ func CreatePedidoAdocao(c *gin.Context) error {
 		if err := db.First(&ong, "id = ?", req.OngID).Error; err == nil {
 			requesterName := "Novo solicitante"
 			var solicitantePhone string
-			
+
 			// Tenta buscar o nome e telefone do solicitante nas respostas do formulário
+			// usando o Label da configuração (texto legível) em vez do Nome interno do campo
 			for _, resposta := range pedido.Respostas {
-				if resposta.CampoFormulario.Nome == "Nome" || resposta.CampoFormulario.Nome == "nome" {
-					requesterName = resposta.Valor
+				var cfg models.CampoConfiguracao
+				if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
+					continue
 				}
-				if resposta.CampoFormulario.Nome == "Telefone" || resposta.CampoFormulario.Nome == "telefone" {
+				switch strings.ToLower(cfg.Label) {
+				case "nome":
+					requesterName = resposta.Valor
+				case "telefone":
 					solicitantePhone = resposta.Valor
 				}
 			}
-			
+
 			// Monta mapa de respostas do formulário para o email
+			// usando o Label da configuração como chave (em vez do Nome interno, que pode ser UUID)
 			respostasMap := make(map[string]string)
 			for _, resposta := range pedido.Respostas {
-				respostasMap[resposta.CampoFormulario.Nome] = resposta.Valor
+				var cfg models.CampoConfiguracao
+				if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err == nil && cfg.Label != "" {
+					respostasMap[cfg.Label] = resposta.Valor
+				} else {
+					// fallback: usa o Nome interno caso o unmarshal falhe
+					respostasMap[resposta.CampoFormulario.Nome] = resposta.Valor
+				}
 			}
-			
+
 			// Cria os dados completos para o email
 			emailData := utils.AdoptionRequestFullData{
 				PetNome:             pet.Nome,
@@ -278,29 +290,28 @@ func CreatePedidoAdocao(c *gin.Context) error {
 				SolicitanteName:     requesterName,
 				RespostasFormulario: respostasMap,
 			}
-			
+
 			// Gera o email com todas as informações
 			subject, body := utils.NewAdoptionRequestFullEmail(emailData)
-			
+
 			// Envia para o email da ONG
 			mailer := utils.GetMailer()
 			if mailer != nil {
 				err := mailer.Send([]string{ong.Email}, subject, body)
 				if err != nil {
-					// Log do erro mas não interrompe a operação
 					fmt.Println("⚠️ Erro ao enviar email para ONG:", err)
 				} else {
 					fmt.Println("✅ Email enviado para ONG:", ong.Email)
 				}
 			}
-			
+
 			// 💬 Enviar WhatsApp para ONG sobre novo pedido (assíncrono)
 			if ong.Telefone != "" {
 				utils.SendWhatsAppAdoptionRequest(ong.Telefone, pet.Nome, requesterName, ong.Nome)
 			} else {
 				fmt.Println("⚠️ Telefone da ONG não configurado, WhatsApp não enviado")
 			}
-			
+
 			// 💬 Enviar confirmação WhatsApp para solicitante (assíncrono)
 			if solicitantePhone != "" {
 				utils.SendWhatsAppAdoptionConfirmation(solicitantePhone, requesterName, pet.Nome, ong.Nome)
@@ -519,28 +530,32 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		oldStatus == models.PedidoAdocaoPendente {
 		go func() {
 			// Extrai email, nome e telefone do solicitante das respostas
+			// usando o Label da configuração (texto legível) em vez do Nome interno do campo
 			var solicitantEmail string
 			var solicitanteName string
 			var solicitantePhone string
-			
+
 			for _, resposta := range pedido.Respostas {
-				if resposta.CampoFormulario.Nome == "Email" {
+				var cfg models.CampoConfiguracao
+				if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
+					continue
+				}
+				switch strings.ToLower(cfg.Label) {
+				case "email":
 					solicitantEmail = resposta.Valor
-				}
-				if resposta.CampoFormulario.Nome == "Nome" {
+				case "nome":
 					solicitanteName = resposta.Valor
-				}
-				if resposta.CampoFormulario.Nome == "Telefone" || resposta.CampoFormulario.Nome == "telefone" {
+				case "telefone":
 					solicitantePhone = resposta.Valor
 				}
 			}
-			
+
 			// Se não encontrou email, não envia email
 			if solicitantEmail == "" {
 				fmt.Println("⚠️ Email do solicitante não encontrado nas respostas do formulário")
 			} else {
 				var subject, body string
-				
+
 				if req.Status == models.PedidoAdocaoAprovado {
 					subject, body = utils.NewAdoptionApprovedEmail(
 						solicitanteName,
@@ -556,7 +571,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 						"Infelizmente sua solicitação de adoção foi rejeitada.",
 					)
 				}
-				
+
 				// Envia para o email do solicitante
 				mailer := utils.GetMailer()
 				if mailer != nil {
@@ -572,7 +587,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 					}
 				}
 			}
-			
+
 			// 💬 Enviar WhatsApp para solicitante (assíncrono)
 			if solicitantePhone == "" {
 				fmt.Println("⚠️ Telefone do solicitante não encontrado nas respostas, WhatsApp não enviado")
