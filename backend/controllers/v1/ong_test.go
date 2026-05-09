@@ -30,7 +30,7 @@ func TestCriarOng(t *testing.T) {
 	}
 
 	emailDuplicadoBody := map[string]any{
-		"email":            testOng.Email,
+		"email":            testOng.Email, // "base@ong.org" — já existe via mockData()
 		"endereco":         "Rua B, 456",
 		"nome":             "Outra ONG",
 		"nome_responsavel": "Maria Souza",
@@ -61,6 +61,10 @@ func TestCriarOng(t *testing.T) {
 				assert.Equal(t, "ONG Teste", ong.Nome)
 				assert.Equal(t, "contato@minhaong.org", ong.Email)
 				assert.Equal(t, models.OngRegiao("Serra"), ong.Regiao)
+
+				// Remove a ONG criada pelo user_id fixo para que o próximo test case
+				// não caia no check "usuário já possui uma ONG cadastrada".
+				mockDB.Unscoped().Delete(&ong)
 			},
 		},
 		{

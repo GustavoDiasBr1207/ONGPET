@@ -85,8 +85,6 @@ var testOng models.Ong
 
 func mockData() {
 	var err error
-	// cache=shared mantém o banco vivo enquanto houver pelo menos uma conexão aberta,
-	// evitando "no such table" quando GetDB() e GetUserDB() abrem sessões separadas.
 	mockDB, err = gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{SingularTable: true},
 	})
@@ -109,8 +107,6 @@ func mockData() {
 		panic("falha ao migrar models: " + err.Error())
 	}
 
-	// Limpa todas as tabelas preservando o schema.
-	// Ordem: filhas antes das pais para não violar FKs.
 	mockDB.Exec("DELETE FROM pedido_adocao")
 	mockDB.Exec("DELETE FROM resposta_formulario")
 	mockDB.Exec("DELETE FROM campo_formulario")
@@ -164,6 +160,7 @@ func newRouter() *gin.Engine {
 	wrap := func(fn func(*gin.Context) error) gin.HandlerFunc {
 		return func(c *gin.Context) {
 			c.Set("token", "test-token")
+			c.Set("user_id", "00000000-0000-0000-0000-000000000001")
 			if err := fn(c); err != nil {
 				status := http.StatusInternalServerError
 				msg := err.Error()
@@ -222,12 +219,17 @@ func newRouter() *gin.Engine {
 					"Banner não encontrado":
 					status = http.StatusNotFound
 
-				case "email já cadastrado":
+				case
+					"email já cadastrado",
+					"usuário já possui uma ONG cadastrada":
 					status = http.StatusConflict
 
+				case
+					"usuário não autenticado",
+					"user_id inválido no token":
+					status = http.StatusUnauthorized
+
 				default:
-					// Erros de binding do Gin: JSON malformado, EOF, campos
-					// obrigatórios faltando (validator.ValidationErrors começa com "Key:").
 					if strings.HasPrefix(msg, "body inválido") ||
 						strings.HasPrefix(msg, "invalid character") ||
 						strings.HasPrefix(msg, "invalid syntax") ||
