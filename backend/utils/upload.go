@@ -22,20 +22,17 @@ var (
 	SupabaseBucketFormularios string
 )
 
-/*
-	InitSupabase inicializa variáveis do Supabase Storage (REST API)
-	⚠️ Use SEMPRE a SERVICE_ROLE_KEY no backend
-*/
+// InitSupabase inicializa variáveis do Supabase Storage (REST API)
 func InitSupabase() {
 	SupabaseURL = strings.TrimSpace(os.Getenv("SUPABASE_URL"))
-	SupabaseKey = strings.TrimSpace(os.Getenv("SUPABASE_SERVICE_ROLE_KEY"))
+	SupabaseKey = strings.TrimSpace(os.Getenv("SUPABASE_KEY")) // ← anon key
 
 	SupabaseBucketPets        = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_PETS"))
 	SupabaseBucketOngs        = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_ONGS"))
 	SupabaseBucketFormularios = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_FORMULARIOS"))
 
 	if SupabaseURL == "" || SupabaseKey == "" {
-		panic("❌ SUPABASE_URL e SUPABASE_SERVICE_ROLE_KEY são obrigatórios")
+		panic("❌ SUPABASE_URL e SUPABASE_KEY são obrigatórios")
 	}
 	if SupabaseBucketPets == "" || SupabaseBucketOngs == "" || SupabaseBucketFormularios == "" {
 		panic("❌ SUPABASE_BUCKET_PETS, SUPABASE_BUCKET_ONGS e SUPABASE_BUCKET_FORMULARIOS são obrigatórios")
@@ -54,9 +51,7 @@ func IsValidImage(file *multipart.FileHeader) bool {
 	}
 }
 
-/*
-	UploadFile envia arquivo para o Supabase Storage
-*/
+// UploadFile envia arquivo para o Supabase Storage
 func UploadFile(
 	file *multipart.FileHeader,
 	bucket string,
