@@ -49,7 +49,7 @@ type OngListResponse struct {
 // @Success 200 {object} v1.OngListResponse
 // @Router /api/v1/ongs [get]
 func ReadOngs(c *gin.Context) error {
-	db := database.GetDB() // público — sem token
+	db := database.GetDB()
 	query := db.Model(&models.Ong{})
 
 	if nome := strings.TrimSpace(c.Query("nome")); nome != "" {
@@ -111,7 +111,7 @@ func ReadOngs(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/ongs/{id} [get]
 func ReadOng(c *gin.Context) error {
-	db := database.GetDB() // público — sem token
+	db := database.GetDB()
 
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -149,7 +149,8 @@ func CreateOng(c *gin.Context) error {
 	req.Nome  = strings.TrimSpace(req.Nome)
 	req.Email = strings.TrimSpace(req.Email)
 
-	db := database.GetUserDB(c.GetString("token"))
+	userJWT := c.GetString("token")
+	db := database.GetUserDB(userJWT)
 
 	userIDRaw, exists := c.Get("user_id")
 	if !exists {
@@ -195,12 +196,12 @@ func CreateOng(c *gin.Context) error {
 		return err
 	}
 
-	// Atualiza os metadados do usuário no Supabase Auth
+	// Atualiza os metadados do usuário no Supabase Auth usando o JWT do próprio usuário
 	metaErr := utils.UpdateUserOngMetadata(userID.String(), utils.OngMetadata{
 		OngID:    ong.ID.String(),
 		OngNome:  ong.Nome,
 		OngEmail: ong.Email,
-	})
+	}, userJWT)
 	if metaErr != nil {
 		fmt.Printf("⚠️ Aviso: não foi possível atualizar metadata do usuário: %s\n", metaErr.Error())
 	}
@@ -225,7 +226,7 @@ func CreateOng(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/ongs/{id}/logo [post]
 func UploadOngLogo(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token")) // autenticado — RLS ativo
+	db := database.GetUserDB(c.GetString("token"))
 
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -298,7 +299,7 @@ func UploadOngLogo(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/ongs/{id}/logo [delete]
 func DeleteOngLogo(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token")) // autenticado — RLS ativo
+	db := database.GetUserDB(c.GetString("token"))
 
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -356,7 +357,7 @@ func UpdateOng(c *gin.Context) error {
 		return fmt.Errorf("body inválido: %w", err)
 	}
 
-	db := database.GetUserDB(c.GetString("token")) // autenticado — RLS ativo
+	db := database.GetUserDB(c.GetString("token"))
 
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -424,7 +425,7 @@ func UpdateOng(c *gin.Context) error {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/ongs/{id} [delete]
 func DeleteOng(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token")) // autenticado — RLS ativo
+	db := database.GetUserDB(c.GetString("token"))
 
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {

@@ -11,6 +11,7 @@ import (
 	v1 "ongpet/controllers/v1"
 	"ongpet/database"
 	"ongpet/models"
+	"ongpet/utils"
 
 	"github.com/gin-gonic/gin"
 	"github.com/stretchr/testify/assert"
@@ -80,10 +81,15 @@ var mockDB *gorm.DB
 var testOng models.Ong
 
 // ─────────────────────────────────────────────────────────────
-// mockData — banco limpo + ONG base
+// mockData — banco limpo + ONG base + mocks externos
 // ─────────────────────────────────────────────────────────────
 
 func mockData() {
+	// Mock do Supabase Auth — evita chamada HTTP real nos testes
+	utils.UpdateUserOngMetadataFn = func(userID string, ong utils.OngMetadata, userJWT string) error {
+		return nil
+	}
+
 	var err error
 	mockDB, err = gorm.Open(sqlite.Open("file::memory:?cache=shared"), &gorm.Config{
 		NamingStrategy: schema.NamingStrategy{SingularTable: true},
