@@ -3,13 +3,12 @@ package utils
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 )
 
-/*
-	UploadOptimizedFile
-	Faz upload de uma imagem já processada (resize/compress)
-*/
+// UploadOptimizedFile faz upload de uma imagem já processada (resize/compress).
+// Usa x-upsert: true para evitar erro 400 quando o arquivo já existe no mesmo path.
 func UploadOptimizedFile(
 	buffer *bytes.Buffer,
 	contentType string,
@@ -18,6 +17,7 @@ func UploadOptimizedFile(
 	folderID string,
 	name string,
 	position int,
+	authToken string,
 ) (string, error) {
 
 	objectPath := fmt.Sprintf(
@@ -40,10 +40,14 @@ func UploadOptimizedFile(
 		return "", err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+SupabaseKey)
+	bearerToken := authToken
+	if bearerToken == "" {
+		bearerToken = SupabaseKey
+	}
+	req.Header.Set("Authorization", "Bearer "+bearerToken)
 	req.Header.Set("apikey", SupabaseKey)
 	req.Header.Set("Content-Type", contentType)
-	req.Header.Set("x-upsert", "false")
+	req.Header.Set("x-upsert", "true")
 
 	resp, err := http.DefaultClient.Do(req)
 	if err != nil {
@@ -52,7 +56,8 @@ func UploadOptimizedFile(
 	defer resp.Body.Close()
 
 	if resp.StatusCode >= 300 {
-		return "", fmt.Errorf("falha ao fazer upload da imagem (status %d)", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("falha ao fazer upload da imagem (status %d): %s", resp.StatusCode, string(body))
 	}
 
 	publicURL := fmt.Sprintf(

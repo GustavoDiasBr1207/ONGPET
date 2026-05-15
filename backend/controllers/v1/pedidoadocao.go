@@ -56,15 +56,8 @@ type PedidoAdocaoListResponse struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao [get]
 func ReadPedidosAdocao(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-	query := db.Model(&models.PedidoAdocao{})
-
-	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
-		query = query.Where("ong_id = ?", ongID)
-	}
-	if petID := strings.TrimSpace(c.Query("pet_id")); petID != "" {
-		query = query.Where("pet_id = ?", petID)
-	}
+	ongFilter := strings.TrimSpace(c.Query("ong_id"))
+	petFilter := strings.TrimSpace(c.Query("pet_id"))
 
 	pageStr  := c.DefaultQuery("page",  "1")
 	limitStr := c.DefaultQuery("limit", "10")
@@ -81,24 +74,37 @@ func ReadPedidosAdocao(c *gin.Context) error {
 		limit = 100
 	}
 
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
+	var (
+		total   int64
+		pedidos []models.PedidoAdocao
+	)
+
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		query := tx.Model(&models.PedidoAdocao{})
+		if ongFilter != "" {
+			query = query.Where("ong_id = ?", ongFilter)
+		}
+		if petFilter != "" {
+			query = query.Where("pet_id = ?", petFilter)
+		}
+
+		if err := query.Count(&total).Error; err != nil {
+			return err
+		}
+
+		offset := (page - 1) * limit
+		return query.
+			Preload("Respostas.CampoFormulario").
+			Order("created_at DESC").
+			Offset(offset).
+			Limit(limit + 1).
+			Find(&pedidos).Error
+	})
+	if err != nil {
 		return err
 	}
 
-	offset     := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
-
-	var pedidos []models.PedidoAdocao
-	if err := query.
-		Preload("Respostas.CampoFormulario").
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(limit + 1).
-		Find(&pedidos).Error; err != nil {
-		return err
-	}
-
 	hasNext := false
 	if len(pedidos) > limit {
 		hasNext = true
@@ -128,17 +134,17 @@ func ReadPedidosAdocao(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [get]
 func ReadPedidoAdocao(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pedido inválido")
 	}
 
 	var pedido models.PedidoAdocao
-	if err := db.
-		Preload("Respostas.CampoFormulario").
-		First(&pedido, "id = ?", pedidoID).Error; err != nil {
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		return tx.Preload("Respostas.CampoFormulario").
+			First(&pedido, "id = ?", pedidoID).Error
+	})
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("Pedido de adoção não encontrado")
 		}
@@ -337,28 +343,28 @@ func CreatePedidoAdocao(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [delete]
 func DeletePedidoAdocao(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pedido inválido")
 	}
 
-	if err := db.Where("pedido_adocao_id = ?", pedidoID).
-		Delete(&models.RespostaFormulario{}).Error; err != nil {
-		return err
-	}
+	return database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.Where("pedido_adocao_id = ?", pedidoID).
+			Delete(&models.RespostaFormulario{}).Error; err != nil {
+			return err
+		}
 
-	result := db.Where("id = ?", pedidoID).Delete(&models.PedidoAdocao{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("Pedido de adoção não encontrado")
-	}
+		result := tx.Where("id = ?", pedidoID).Delete(&models.PedidoAdocao{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("Pedido de adoção não encontrado")
+		}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Pedido de adoção removido com sucesso"})
-	return nil
+		c.JSON(http.StatusOK, gin.H{"message": "Pedido de adoção removido com sucesso"})
+		return nil
+	})
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -442,6 +448,7 @@ func UploadRespostaImagem(c *gin.Context) error {
 		pedidoID.String(),
 		cfg.Label,
 		1,
+		"",
 	)
 	if err != nil {
 		return err
@@ -495,33 +502,35 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return errors.New("status inválido. Use: pendente, aprovado, rejeitado ou cancelado")
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pedido inválido")
 	}
 
-	var pedido models.PedidoAdocao
-	if err := db.First(&pedido, "id = ?", pedidoID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Pedido de adoção não encontrado")
+	var (
+		pedido    models.PedidoAdocao
+		oldStatus models.PedidoAdocaoStatus
+	)
+
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&pedido, "id = ?", pedidoID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Pedido de adoção não encontrado")
+			}
+			return err
 		}
-		return err
-	}
-
-	oldStatus := pedido.Status
-	pedido.Status = req.Status
-
-	if err := db.Save(&pedido).Error; err != nil {
-		return err
-	}
-
-	if err := db.
-		Preload("Respostas.CampoFormulario").
-		Preload("Pet").
-		Preload("Ong").
-		First(&pedido, "id = ?", pedidoID).Error; err != nil {
+		oldStatus = pedido.Status
+		pedido.Status = req.Status
+		if err := tx.Save(&pedido).Error; err != nil {
+			return err
+		}
+		return tx.
+			Preload("Respostas.CampoFormulario").
+			Preload("Pet").
+			Preload("Ong").
+			First(&pedido, "id = ?", pedidoID).Error
+	})
+	if err != nil {
 		return err
 	}
 

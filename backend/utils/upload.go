@@ -20,6 +20,7 @@ var (
 	SupabaseBucketPets        string
 	SupabaseBucketOngs        string
 	SupabaseBucketFormularios string
+	SupabaseBucketBanners     string
 )
 
 // InitSupabase inicializa variáveis do Supabase Storage (REST API)
@@ -30,12 +31,17 @@ func InitSupabase() {
 	SupabaseBucketPets        = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_PETS"))
 	SupabaseBucketOngs        = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_ONGS"))
 	SupabaseBucketFormularios = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_FORMULARIOS"))
+	SupabaseBucketBanners     = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_BANNERS"))
 
 	if SupabaseURL == "" || SupabaseKey == "" {
 		panic("❌ SUPABASE_URL e SUPABASE_KEY são obrigatórios")
 	}
 	if SupabaseBucketPets == "" || SupabaseBucketOngs == "" || SupabaseBucketFormularios == "" {
 		panic("❌ SUPABASE_BUCKET_PETS, SUPABASE_BUCKET_ONGS e SUPABASE_BUCKET_FORMULARIOS são obrigatórios")
+	}
+	if SupabaseBucketBanners == "" {
+		SupabaseBucketBanners = SupabaseBucketOngs
+		fmt.Println("⚠️ SUPABASE_BUCKET_BANNERS não configurado, usando SUPABASE_BUCKET_ONGS como fallback")
 	}
 
 	fmt.Println("✅ Supabase Storage (REST) inicializado com sucesso")

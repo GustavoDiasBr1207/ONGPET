@@ -171,9 +171,20 @@ func RequireAuth() gin.HandlerFunc {
 			return
 		}
 
-		c.Set("user_id", claims["sub"]) // UUID do usuário
-		c.Set("token", tokenStr)         // token raw → usado nas queries para ativar RLS
-		c.Set("claims", claims)           // claims completas
+		// Serializa os claims para JSON — é o formato que o Postgres espera
+		// em request.jwt.claims para que auth.uid() funcione corretamente.
+		// Antes estava salvando o JWT bruto (base64), que o banco não consegue ler.
+		claimsJSON, err := json.Marshal(claims)
+		if err != nil {
+			c.JSON(http.StatusInternalServerError, gin.H{"error": "failed to serialize claims"})
+			c.Abort()
+			return
+		}
+
+		c.Set("user_id", claims["sub"])      // UUID do usuário
+		c.Set("token", string(claimsJSON))   // JSON dos claims → ativa auth.uid() no RLS
+		c.Set("user_token", tokenStr)        // JWT bruto → chamadas à Supabase Auth API
+		c.Set("claims", claims)              // claims completas para uso interno
 
 		c.Next()
 	}
