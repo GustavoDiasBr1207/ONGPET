@@ -9,9 +9,12 @@
 package main
 
 import (
+	"context"
 	"log"
 	"os"
+	"os/signal"
 	"strings"
+	"syscall"
 
 	"ongpet/controllers"
 	"ongpet/database"
@@ -42,7 +45,10 @@ func main() {
 		log.Println("⚠️ Falha ao inicializar WhatsApp service:", err)
 	}
 
-	utils.StartAcompanhamentoReminderScheduler()
+	ctx, cancel := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer cancel()
+
+	utils.StartAcompanhamentoReminderScheduler(ctx)
 
 	err := db.AutoMigrate(
 		&models.Ong{},

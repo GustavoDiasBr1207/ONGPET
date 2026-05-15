@@ -9,6 +9,10 @@ import (
 )
 
 func debugEnv() {
+	if os.Getenv("DEBUG") != "true" {
+		return
+	}
+
 	if err := godotenv.Load(); err != nil {
 		fmt.Println("⚠️ .env não encontrado")
 	}

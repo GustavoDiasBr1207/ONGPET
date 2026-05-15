@@ -247,7 +247,7 @@ func UploadOngLogo(c *gin.Context) error {
 	// Remove logo anterior do storage (se existir)
 	if ong.Logo != "" {
 		if objectPath, pathErr := utils.ExtractObjectPath(ong.Logo, utils.SupabaseBucketOngs); pathErr == nil {
-			if delErr := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); delErr != nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath, c.GetString("user_token")); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar logo anterior do storage: %s\n", delErr.Error())
 			}
 		}
@@ -333,7 +333,7 @@ func DeleteOngLogo(c *gin.Context) error {
 
 	// Remove do storage após commit do banco
 	if objectPath != "" {
-		if err := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); err != nil {
+		if err := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath, c.GetString("user_token")); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar logo do storage: %s\n", err.Error())
 		}
 	}

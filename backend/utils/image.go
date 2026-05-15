@@ -33,11 +33,17 @@ type OptimizedImage struct {
 	- PNG mantém transparência
 	- Remove EXIF automaticamente (image.Decode)
 */
+const MaxUploadSize = 10 << 20 // 10 MB
+
 func ResizeAndCompressImage(
 	file *multipart.FileHeader,
-	maxWidth int,    // ex: 1280
-	jpegQuality int, // 1–100 (recomendado: 70–85)
+	maxWidth int,
+	jpegQuality int,
 ) (*OptimizedImage, error) {
+
+	if file.Size > MaxUploadSize {
+		return nil, fmt.Errorf("imagem muito grande (máximo 10 MB, recebido %.1f MB)", float64(file.Size)/(1<<20))
+	}
 
 	// 🔹 Abre arquivo
 	src, err := file.Open()

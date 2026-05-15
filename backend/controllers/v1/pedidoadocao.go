@@ -285,13 +285,13 @@ func CreatePedidoAdocao(c *gin.Context) error {
 			// Cria os dados completos para o email
 			emailData := utils.AdoptionRequestFullData{
 				PetNome:             pet.Nome,
-				PetEspecie:          pet.Especie,
+				PetEspecie:          string(pet.Especie),
 				PetRaca:             pet.Raca,
 				PetIdade:            pet.Idade,
 				PetDescricao:        pet.Descricao,
 				PetPeso:             pet.Peso,
-				PetPorte:            pet.Porte,
-				PetRegiao:           pet.Regiao,
+				PetPorte:            string(pet.Porte),
+				PetRegiao:           string(pet.Regiao),
 				OngNome:             ong.Nome,
 				SolicitanteName:     requesterName,
 				RespostasFormulario: respostasMap,
@@ -427,7 +427,7 @@ func UploadRespostaImagem(c *gin.Context) error {
 
 	if resposta.Valor != "" {
 		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor, utils.SupabaseBucketFormularios); pathErr == nil {
-			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); delErr != nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath, ""); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
 			}
 		} else {

@@ -78,9 +78,9 @@ func RunMigrations() {
 		 ON pet(ong_id) 
 		 WHERE deleted_at IS NULL`,
 
-		// PetImagem
-		`CREATE INDEX IF NOT EXISTS idx_pet_image_pet_id 
-		 ON pet_imagem(pet_id) 
+		// PetImage
+		`CREATE INDEX IF NOT EXISTS idx_pet_image_pet_id
+		 ON pet_image(pet_id)
 		 WHERE deleted_at IS NULL`,
 
 		// FormularioModelo
@@ -89,8 +89,22 @@ func RunMigrations() {
 		 WHERE deleted_at IS NULL`,
 
 		// ONG
-		`CREATE INDEX IF NOT EXISTS idx_ong_email 
-		 ON ong(email) 
+		`CREATE INDEX IF NOT EXISTS idx_ong_email
+		 ON ong(email)
+		 WHERE deleted_at IS NULL`,
+
+		// Acompanhamento
+		`CREATE INDEX IF NOT EXISTS idx_acompanhamento_ong_id
+		 ON acompanhamento(ong_id)
+		 WHERE deleted_at IS NULL`,
+
+		`CREATE INDEX IF NOT EXISTS idx_acompanhamento_proxima_data
+		 ON acompanhamento(proxima_data)
+		 WHERE deleted_at IS NULL AND status = 'ativo'`,
+
+		// LogAcompanhamento
+		`CREATE INDEX IF NOT EXISTS idx_log_acompanhamento_acompanhamento_id
+		 ON log_acompanhamento(acompanhamento_id)
 		 WHERE deleted_at IS NULL`,
 	}
 

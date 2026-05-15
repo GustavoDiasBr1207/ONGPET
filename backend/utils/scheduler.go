@@ -1,6 +1,7 @@
 package utils
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"time"
@@ -18,18 +19,23 @@ import (
 // Chame uma única vez em main.go após inicializar banco e serviços:
 //
 //	utils.StartAcompanhamentoReminderScheduler()
-func StartAcompanhamentoReminderScheduler() {
+func StartAcompanhamentoReminderScheduler(ctx context.Context) {
 	go func() {
 		log.Println("📅 Agendador de lembretes de acompanhamento iniciado")
 
 		for {
 			nextRun := nextDailyRun(20, 00, -3) // 20:00 BRT (UTC-3)
 			log.Printf("⏰ Próximo disparo do lembrete de acompanhamento: %s\n", nextRun.Format("02/01/2006 15:04:05"))
-			time.Sleep(time.Until(nextRun))
 
-			log.Println("🔔 Executando verificação de acompanhamentos...")
-			if err := runAcompanhamentoReminders(); err != nil {
-				log.Printf("⚠️ Erro ao executar lembretes de acompanhamento: %v\n", err)
+			select {
+			case <-ctx.Done():
+				log.Println("📅 Agendador de lembretes encerrado")
+				return
+			case <-time.After(time.Until(nextRun)):
+				log.Println("🔔 Executando verificação de acompanhamentos...")
+				if err := runAcompanhamentoReminders(); err != nil {
+					log.Printf("⚠️ Erro ao executar lembretes de acompanhamento: %v\n", err)
+				}
 			}
 		}
 	}()

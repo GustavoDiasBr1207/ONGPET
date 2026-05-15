@@ -11,6 +11,7 @@ import (
 	"os"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -30,9 +31,12 @@ type jwksResponse struct {
 	Keys []jwksKey `json:"keys"`
 }
 
+const jwksTTL = 12 * time.Hour
+
 var (
-	jwksCache map[string]*ecdsa.PublicKey
-	jwksMu    sync.RWMutex
+	jwksCache    map[string]*ecdsa.PublicKey
+	jwksCachedAt time.Time
+	jwksMu       sync.RWMutex
 )
 
 func fetchJWKS(supabaseURL string) (map[string]*ecdsa.PublicKey, error) {
@@ -112,9 +116,10 @@ func RequireAuth() gin.HandlerFunc {
 		// 3. Obtém chaves JWKS (com cache em memória)
 		jwksMu.RLock()
 		keys := jwksCache
+		expired := time.Since(jwksCachedAt) > jwksTTL
 		jwksMu.RUnlock()
 
-		if keys == nil {
+		if keys == nil || expired {
 			supabaseURL := os.Getenv("SUPABASE_URL")
 			if supabaseURL == "" {
 				c.JSON(http.StatusInternalServerError, gin.H{"error": "SUPABASE_URL not configured"})
@@ -130,6 +135,7 @@ func RequireAuth() gin.HandlerFunc {
 			}
 			jwksMu.Lock()
 			jwksCache = keys
+			jwksCachedAt = time.Now()
 			jwksMu.Unlock()
 		}
 
@@ -187,5 +193,31 @@ func RequireAuth() gin.HandlerFunc {
 		c.Set("claims", claims)              // claims completas para uso interno
 
 		c.Next()
+	}
+}
+
+// RequireAdmin verifica se o user_id está na lista ADMIN_USER_IDS (separada por vírgula).
+// Deve ser usado após RequireAuth().
+// Se ADMIN_USER_IDS não estiver configurado, qualquer usuário autenticado é aceito (com aviso no log).
+func RequireAdmin() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		adminIDs := strings.TrimSpace(os.Getenv("ADMIN_USER_IDS"))
+		if adminIDs == "" {
+			// Sem lista configurada: aceita qualquer autenticado, mas avisa
+			fmt.Println("⚠️ ADMIN_USER_IDS não configurado — rotas de admin abertas para qualquer autenticado")
+			c.Next()
+			return
+		}
+
+		userID := fmt.Sprintf("%v", c.MustGet("user_id"))
+		for _, id := range strings.Split(adminIDs, ",") {
+			if strings.TrimSpace(id) == userID {
+				c.Next()
+				return
+			}
+		}
+
+		c.JSON(http.StatusForbidden, gin.H{"error": "acesso restrito a administradores"})
+		c.Abort()
 	}
 }

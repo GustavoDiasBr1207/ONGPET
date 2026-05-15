@@ -389,7 +389,7 @@ func UploadFormularioImagem(c *gin.Context) error {
 	// Remove imagem anterior (se existir)
 	if formulario.ImagemURL != "" {
 		if objectPath, pathErr := utils.ExtractObjectPath(formulario.ImagemURL, utils.SupabaseBucketFormularios); pathErr == nil {
-			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); delErr != nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath, c.GetString("user_token")); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
 			}
 		}
@@ -482,7 +482,7 @@ func DeleteFormularioImagem(c *gin.Context) error {
 
 	// Remove do storage após commit do banco
 	if objectPath != "" {
-		if err := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); err != nil {
+		if err := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath, c.GetString("user_token")); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar arquivo do storage: %s\n", err.Error())
 		}
 	}

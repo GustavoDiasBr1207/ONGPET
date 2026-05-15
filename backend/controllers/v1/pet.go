@@ -18,18 +18,18 @@ import (
 )
 
 type CreatePetInput struct {
-	Nome         string           `json:"nome"          example:"Rex"`
-	Especie      string           `json:"especie"       example:"Cachorro"`
-	Raca         string           `json:"raca"          example:"Vira-lata"`
-	Idade        int              `json:"idade"         example:"1"`
-	Descricao    string           `json:"descricao"     example:"Pet dócil e brincalhão"`
-	Peso         float64          `json:"peso"          example:"5.5"`
-	Porte        string           `json:"porte"         example:"Médio"`
-	Regiao       string           `json:"regiao"        example:"Serra"`
-	FormularioID *string          `json:"formulario_id" example:""`
-	OngID        uuid.UUID        `json:"ong_id"        example:"6e2c2e7d-4c27-4570-b32e-72799a9e059e"`
-	Sexo         string           `json:"sexo"          example:"Macho"`
-	Status       models.PetStatus `json:"status"        example:"draft"`
+	Nome         string            `json:"nome"          example:"Rex"`
+	Especie      models.PetEspecie `json:"especie"       example:"Cachorro"`
+	Raca         string            `json:"raca"          example:"Vira-lata"`
+	Idade        int               `json:"idade"         example:"1"`
+	Descricao    string            `json:"descricao"     example:"Pet dócil e brincalhão"`
+	Peso         float64           `json:"peso"          example:"5.5"`
+	Porte        models.PetPorte   `json:"porte"         example:"Médio"`
+	Regiao       models.PetRegiao  `json:"regiao"        example:"Serra"`
+	FormularioID *string           `json:"formulario_id" example:""`
+	OngID        uuid.UUID         `json:"ong_id"        example:"6e2c2e7d-4c27-4570-b32e-72799a9e059e"`
+	Sexo         models.PetSexo    `json:"sexo"          example:"Macho"`
+	Status       models.PetStatus  `json:"status"        example:"draft"`
 }
 
 type PetListResponse struct {
@@ -392,7 +392,7 @@ func UpdatePet(c *gin.Context) error {
 			pet.Nome = nome
 		}
 		if req.Especie != "" {
-			pet.Especie = strings.TrimSpace(req.Especie)
+			pet.Especie = models.PetEspecie(strings.TrimSpace(string(req.Especie)))
 		}
 		if req.Raca != "" {
 			pet.Raca = strings.TrimSpace(req.Raca)
@@ -402,14 +402,14 @@ func UpdatePet(c *gin.Context) error {
 			pet.Descricao = strings.TrimSpace(req.Descricao)
 		}
 		pet.Peso = req.Peso
-		if porte := strings.TrimSpace(req.Porte); porte != "" {
-			pet.Porte = porte
+		if porte := strings.TrimSpace(string(req.Porte)); porte != "" {
+			pet.Porte = models.PetPorte(porte)
 		}
-		if regiao := strings.TrimSpace(req.Regiao); regiao != "" {
-			pet.Regiao = regiao
+		if regiao := strings.TrimSpace(string(req.Regiao)); regiao != "" {
+			pet.Regiao = models.PetRegiao(regiao)
 		}
 		if req.Sexo != "" {
-			pet.Sexo = strings.TrimSpace(req.Sexo)
+			pet.Sexo = models.PetSexo(strings.TrimSpace(string(req.Sexo)))
 		}
 		if req.Status != "" {
 			pet.Status = models.PetStatus(req.Status)
@@ -514,7 +514,7 @@ func DeletePetImage(c *gin.Context) error {
 
 	// Remove do storage após commit do banco
 	if objectPath != "" {
-		if err := utils.DeleteFile(utils.SupabaseBucketPets, objectPath); err != nil {
+		if err := utils.DeleteFile(utils.SupabaseBucketPets, objectPath, c.GetString("user_token")); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar arquivo do storage: %s\n", err.Error())
 		}
 	}
