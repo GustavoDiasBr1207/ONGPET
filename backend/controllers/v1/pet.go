@@ -18,18 +18,18 @@ import (
 )
 
 type CreatePetInput struct {
-	Nome         string           `json:"nome"          example:"Rex"`
-	Especie      string           `json:"especie"       example:"Cachorro"`
-	Raca         string           `json:"raca"          example:"Vira-lata"`
-	Idade        int              `json:"idade"         example:"1"`
-	Descricao    string           `json:"descricao"     example:"Pet dócil e brincalhão"`
-	Peso         float64          `json:"peso"          example:"5.5"`
-	Porte        string           `json:"porte"         example:"Médio"`
-	Regiao       string           `json:"regiao"        example:"Serra"`
-	FormularioID *string          `json:"formulario_id" example:""`
-	OngID        uuid.UUID        `json:"ong_id"        example:"6e2c2e7d-4c27-4570-b32e-72799a9e059e"`
-	Sexo         string           `json:"sexo"          example:"Macho"`
-	Status       models.PetStatus `json:"status"        example:"draft"`
+	Nome         string            `json:"nome"          example:"Rex"`
+	Especie      models.PetEspecie `json:"especie"       example:"Cachorro"`
+	Raca         string            `json:"raca"          example:"Vira-lata"`
+	Idade        int               `json:"idade"         example:"1"`
+	Descricao    string            `json:"descricao"     example:"Pet dócil e brincalhão"`
+	Peso         float64           `json:"peso"          example:"5.5"`
+	Porte        models.PetPorte   `json:"porte"         example:"Médio"`
+	Regiao       models.PetRegiao  `json:"regiao"        example:"Serra"`
+	FormularioID *string           `json:"formulario_id" example:""`
+	OngID        uuid.UUID         `json:"ong_id"        example:"6e2c2e7d-4c27-4570-b32e-72799a9e059e"`
+	Sexo         models.PetSexo    `json:"sexo"          example:"Macho"`
+	Status       models.PetStatus  `json:"status"        example:"draft"`
 }
 
 type PetListResponse struct {
@@ -66,19 +66,23 @@ func parseFormularioID(s *string) (*uuid.UUID, error) {
 // @Router /api/v1/pets [get]
 func ReadPets(c *gin.Context) error {
 	db := database.GetDB()
-	query := db.Model(&models.Pet{})
+	query := db.Model(&models.Pet{}).Where("status = ?", models.PetAvailable)
 
+	likeOp := "LIKE"
+	if db.Dialector.Name() == "postgres" {
+		likeOp = "ILIKE"
+	}
 	if nome := strings.TrimSpace(c.Query("nome")); nome != "" {
-		query = query.Where("nome LIKE ?", "%"+nome+"%")
+		query = query.Where("nome "+likeOp+" ?", "%"+nome+"%")
 	}
 	if especie := strings.TrimSpace(c.Query("especie")); especie != "" {
-		query = query.Where("especie LIKE ?", "%"+especie+"%")
+		query = query.Where("especie = ?", especie)
 	}
 	if porte := strings.TrimSpace(c.Query("porte")); porte != "" {
 		query = query.Where("porte = ?", porte)
 	}
 	if regiao := strings.TrimSpace(c.Query("regiao")); regiao != "" {
-		query = query.Where("regiao LIKE ?", "%"+regiao+"%")
+		query = query.Where("regiao "+likeOp+" ?", "%"+regiao+"%")
 	}
 	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
 		query = query.Where("ong_id = ?", ongID)
@@ -192,31 +196,32 @@ func CreatePet(c *gin.Context) error {
 		return err
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
-	if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("ONG não encontrada")
+	var pet models.Pet
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("ONG não encontrada")
+			}
+			return err
 		}
-		return err
-	}
 
-	pet := models.Pet{
-		Nome:         req.Nome,
-		Especie:      req.Especie,
-		Raca:         req.Raca,
-		Idade:        req.Idade,
-		Descricao:    req.Descricao,
-		Peso:         req.Peso,
-		Porte:        req.Porte,
-		Regiao:       req.Regiao,
-		Sexo:         req.Sexo,
-		OngID:        req.OngID,
-		Status:       req.Status,
-		FormularioID: formularioID,
-	}
-
-	if err := db.Create(&pet).Error; err != nil {
+		pet = models.Pet{
+			Nome:         req.Nome,
+			Especie:      req.Especie,
+			Raca:         req.Raca,
+			Idade:        req.Idade,
+			Descricao:    req.Descricao,
+			Peso:         req.Peso,
+			Porte:        req.Porte,
+			Regiao:       req.Regiao,
+			Sexo:         req.Sexo,
+			OngID:        req.OngID,
+			Status:       req.Status,
+			FormularioID: formularioID,
+		}
+		return tx.Create(&pet).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -240,62 +245,83 @@ func CreatePet(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id}/imagens [post]
 func UploadPetImages(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	petID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pet inválido")
 	}
 
+	token := c.GetString("token")
+
+	// Etapa 1: valida que o pet existe (RLS)
 	var pet models.Pet
-	if err := db.First(&pet, "id = ?", petID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Pet não encontrado")
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		if err := tx.First(&pet, "id = ?", petID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Pet não encontrado")
+			}
+			return err
 		}
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 
+	// Etapa 2: valida os arquivos enviados
 	form, err := c.MultipartForm()
 	if err != nil || form.File == nil {
 		return errors.New("nenhuma imagem enviada")
 	}
-
 	files := form.File["imagens"]
 	if len(files) == 0 {
 		return errors.New("nenhuma imagem enviada")
 	}
 
-	var totalAtual int64
-	if err := db.Model(&models.PetImage{}).
-		Where("pet_id = ?", petID).
-		Count(&totalAtual).Error; err != nil {
+	// Etapa 3: verifica limite de imagens e posição atual (RLS) — uma única query
+	var (
+		lastPosition int
+		totalAtual   int64
+	)
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		type countMax struct {
+			Total       int64
+			MaxPosition int
+		}
+		var cm countMax
+		if err := tx.Model(&models.PetImage{}).
+			Where("pet_id = ?", petID).
+			Select("COUNT(*) AS total, COALESCE(MAX(position), 0) AS max_position").
+			Scan(&cm).Error; err != nil {
+			return err
+		}
+		totalAtual = cm.Total
+		lastPosition = cm.MaxPosition
+		if totalAtual+int64(len(files)) > 5 {
+			return errors.New("o pet pode ter no máximo 5 imagens")
+		}
+		return nil
+	})
+	if err != nil {
 		return err
 	}
 
-	if totalAtual+int64(len(files)) > 5 {
-		return errors.New("o pet pode ter no máximo 5 imagens")
+	// Etapa 2: processa e faz upload das imagens
+	type uploadedImage struct {
+		url      string
+		position int
 	}
-
-	var lastPosition int
-	if err := db.Model(&models.PetImage{}).
-		Where("pet_id = ?", petID).
-		Select("COALESCE(MAX(position), 0)").
-		Scan(&lastPosition).Error; err != nil {
-		return err
-	}
+	uploads := make([]uploadedImage, 0, len(files))
 
 	for i, file := range files {
 		if !utils.IsValidImage(file) {
 			return errors.New("tipo de imagem inválido")
 		}
-
 		position := lastPosition + i + 1
 
 		optimized, err := utils.ResizeAndCompressImage(file, 1280, 70)
 		if err != nil {
 			return err
 		}
-
 		url, err := utils.UploadOptimizedFile(
 			optimized.Buffer,
 			optimized.ContentType,
@@ -304,24 +330,28 @@ func UploadPetImages(c *gin.Context) error {
 			petID.String(),
 			pet.Nome,
 			position,
+			c.GetString("user_token"),
 		)
 		if err != nil {
 			return err
 		}
-
-		image := models.PetImage{
-			URL:      url,
-			PetID:    petID,
-			Position: position,
-		}
-		if err := db.Create(&image).Error; err != nil {
-			return err
-		}
+		uploads = append(uploads, uploadedImage{url: url, position: position})
 	}
 
-	if err := db.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
-		return tx.Order("position ASC")
-	}).First(&pet, "id = ?", petID).Error; err != nil {
+	// Etapa 3: salva registros de imagem em batch e recarrega pet (RLS)
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		images := make([]models.PetImage, len(uploads))
+		for i, u := range uploads {
+			images[i] = models.PetImage{URL: u.url, PetID: petID, Position: u.position}
+		}
+		if err := tx.CreateInBatches(images, 10).Error; err != nil {
+			return err
+		}
+		return tx.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("position ASC")
+		}).First(&pet, "id = ?", petID).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -351,64 +381,64 @@ func UpdatePet(c *gin.Context) error {
 		return fmt.Errorf("body inválido: %w", err)
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
 	petID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pet inválido")
-	}
-
-	var pet models.Pet
-	if err := db.First(&pet, "id = ?", petID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Pet não encontrado")
-		}
-		return err
-	}
-
-	if nome := strings.TrimSpace(req.Nome); nome != "" {
-		pet.Nome = nome
-	}
-	if req.Especie != "" {
-		pet.Especie = strings.TrimSpace(req.Especie)
-	}
-	if req.Raca != "" {
-		pet.Raca = strings.TrimSpace(req.Raca)
-	}
-	pet.Idade = req.Idade
-	if req.Descricao != "" {
-		pet.Descricao = strings.TrimSpace(req.Descricao)
-	}
-	pet.Peso = req.Peso
-	if porte := strings.TrimSpace(req.Porte); porte != "" {
-		pet.Porte = porte
-	}
-	if regiao := strings.TrimSpace(req.Regiao); regiao != "" {
-		pet.Regiao = regiao
-	}
-	if req.Sexo != "" {
-		pet.Sexo = strings.TrimSpace(req.Sexo)
-	}
-	if req.Status != "" {
-		pet.Status = models.PetStatus(req.Status)
-	}
-	if req.OngID != uuid.Nil {
-		pet.OngID = req.OngID
 	}
 
 	formularioID, err := parseFormularioID(req.FormularioID)
 	if err != nil {
 		return err
 	}
-	pet.FormularioID = formularioID
 
-	if err := db.Save(&pet).Error; err != nil {
-		return err
-	}
+	var pet models.Pet
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&pet, "id = ?", petID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Pet não encontrado")
+			}
+			return err
+		}
 
-	if err := db.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
-		return tx.Order("position ASC")
-	}).First(&pet, "id = ?", petID).Error; err != nil {
+		if nome := strings.TrimSpace(req.Nome); nome != "" {
+			pet.Nome = nome
+		}
+		if req.Especie != "" {
+			pet.Especie = models.PetEspecie(strings.TrimSpace(string(req.Especie)))
+		}
+		if req.Raca != "" {
+			pet.Raca = strings.TrimSpace(req.Raca)
+		}
+		pet.Idade = req.Idade
+		if req.Descricao != "" {
+			pet.Descricao = strings.TrimSpace(req.Descricao)
+		}
+		pet.Peso = req.Peso
+		if porte := strings.TrimSpace(string(req.Porte)); porte != "" {
+			pet.Porte = models.PetPorte(porte)
+		}
+		if regiao := strings.TrimSpace(string(req.Regiao)); regiao != "" {
+			pet.Regiao = models.PetRegiao(regiao)
+		}
+		if req.Sexo != "" {
+			pet.Sexo = models.PetSexo(strings.TrimSpace(string(req.Sexo)))
+		}
+		if req.Status != "" {
+			pet.Status = models.PetStatus(req.Status)
+		}
+		if req.OngID != uuid.Nil {
+			pet.OngID = req.OngID
+		}
+		pet.FormularioID = formularioID
+
+		if err := tx.Save(&pet).Error; err != nil {
+			return err
+		}
+		return tx.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("position ASC")
+		}).First(&pet, "id = ?", petID).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -430,23 +460,22 @@ func UpdatePet(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id} [delete]
 func DeletePet(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	petID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pet inválido")
 	}
 
-	result := db.Where("id = ?", petID).Delete(&models.Pet{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("Pet não encontrado")
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Pet removido com sucesso"})
-	return nil
+	return database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		result := tx.Where("id = ?", petID).Delete(&models.Pet{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("Pet não encontrado")
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "Pet removido com sucesso"})
+		return nil
+	})
 }
 
 // @Summary Remove uma imagem de um Pet
@@ -461,8 +490,6 @@ func DeletePet(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/pets/{id}/imagens/{imageId} [delete]
 func DeletePetImage(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	petID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pet inválido")
@@ -473,30 +500,43 @@ func DeletePetImage(c *gin.Context) error {
 		return errors.New("ID da imagem inválido")
 	}
 
-	var image models.PetImage
-	if err := db.First(&image, "id = ? AND pet_id = ?", imageID, petID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Imagem não encontrada")
+	token := c.GetString("token")
+
+	var (
+		image      models.PetImage
+		objectPath string
+	)
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		if err := tx.First(&image, "id = ? AND pet_id = ?", imageID, petID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Imagem não encontrada")
+			}
+			return err
 		}
+		if path, pathErr := utils.ExtractObjectPath(image.URL, utils.SupabaseBucketPets); pathErr == nil {
+			objectPath = path
+		} else {
+			fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
+		}
+		return tx.Delete(&image).Error
+	})
+	if err != nil {
 		return err
 	}
 
-	if objectPath, pathErr := utils.ExtractObjectPath(image.URL, utils.SupabaseBucketPets); pathErr == nil {
-		if err := utils.DeleteFile(utils.SupabaseBucketPets, objectPath); err != nil {
+	// Remove do storage após commit do banco
+	if objectPath != "" {
+		if err := utils.DeleteFile(utils.SupabaseBucketPets, objectPath, c.GetString("user_token")); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar arquivo do storage: %s\n", err.Error())
 		}
-	} else {
-		fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
-	}
-
-	if err := db.Delete(&image).Error; err != nil {
-		return err
 	}
 
 	var pet models.Pet
-	if err := db.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
-		return tx.Order("position ASC")
-	}).First(&pet, "id = ?", petID).Error; err != nil {
+	if err := database.WithUserDB(token, func(tx *gorm.DB) error {
+		return tx.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("position ASC")
+		}).First(&pet, "id = ?", petID).Error
+	}); err != nil {
 		return err
 	}
 

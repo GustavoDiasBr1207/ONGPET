@@ -52,11 +52,15 @@ func ReadOngs(c *gin.Context) error {
 	db := database.GetDB()
 	query := db.Model(&models.Ong{})
 
+	likeOp := "LIKE"
+	if db.Dialector.Name() == "postgres" {
+		likeOp = "ILIKE"
+	}
 	if nome := strings.TrimSpace(c.Query("nome")); nome != "" {
-		query = query.Where("nome LIKE ?", "%"+nome+"%")
+		query = query.Where("nome "+likeOp+" ?", "%"+nome+"%")
 	}
 	if email := strings.TrimSpace(c.Query("email")); email != "" {
-		query = query.Where("email LIKE ?", "%"+email+"%")
+		query = query.Where("email "+likeOp+" ?", "%"+email+"%")
 	}
 
 	pageStr  := c.DefaultQuery("page",  "1")
@@ -149,9 +153,6 @@ func CreateOng(c *gin.Context) error {
 	req.Nome  = strings.TrimSpace(req.Nome)
 	req.Email = strings.TrimSpace(req.Email)
 
-	userJWT := c.GetString("token")
-	db := database.GetUserDB(userJWT)
-
 	userIDRaw, exists := c.Get("user_id")
 	if !exists {
 		return errors.New("usuário não autenticado")
@@ -161,47 +162,41 @@ func CreateOng(c *gin.Context) error {
 		return errors.New("user_id inválido no token")
 	}
 
-	// Verifica se o usuário já possui uma ONG ativa (não deletada)
-	var existing models.Ong
-	if err := db.Where("user_id = ? AND deleted_at IS NULL", userID).First(&existing).Error; err == nil {
-		return gin.Error{
-			Err:  errors.New("usuário já possui uma ONG cadastrada"),
-			Type: gin.ErrorTypePublic,
+	var ong models.Ong
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		var existing models.Ong
+		if err := tx.Where("user_id = ? AND deleted_at IS NULL", userID).First(&existing).Error; err == nil {
+			return errors.New("usuário já possui uma ONG cadastrada")
 		}
-	}
-
-	// Verifica se o e-mail já está em uso por outra ONG ativa
-	if err := db.Where("email = ? AND deleted_at IS NULL", req.Email).First(&models.Ong{}).Error; err == nil {
-		return gin.Error{
-			Err:  errors.New("email já cadastrado"),
-			Type: gin.ErrorTypePublic,
+		if err := tx.Where("email = ? AND deleted_at IS NULL", req.Email).First(&models.Ong{}).Error; err == nil {
+			return errors.New("email já cadastrado")
 		}
-	}
 
-	ong := models.Ong{
-		Nome:            req.Nome,
-		Email:           req.Email,
-		Endereco:        req.Endereco,
-		Telefone:        req.Telefone,
-		WhatsappLink:    req.WhatsappLink,
-		Descricao:       req.Descricao,
-		Site:            req.Site,
-		NomeResponsavel: req.NomeResponsavel,
-		Instagram:       req.Instagram,
-		Regiao:          req.Regiao,
-		UserID:          userID,
-	}
-
-	if err := db.Create(&ong).Error; err != nil {
+		ong = models.Ong{
+			Nome:            req.Nome,
+			Email:           req.Email,
+			Endereco:        req.Endereco,
+			Telefone:        req.Telefone,
+			WhatsappLink:    req.WhatsappLink,
+			Descricao:       req.Descricao,
+			Site:            req.Site,
+			NomeResponsavel: req.NomeResponsavel,
+			Instagram:       req.Instagram,
+			Regiao:          req.Regiao,
+			UserID:          userID,
+		}
+		return tx.Create(&ong).Error
+	})
+	if err != nil {
 		return err
 	}
 
-	// Atualiza os metadados do usuário no Supabase Auth usando o JWT do próprio usuário
+	// Atualiza metadados usando o JWT bruto (não o JSON de claims)
 	metaErr := utils.UpdateUserOngMetadata(userID.String(), utils.OngMetadata{
 		OngID:    ong.ID.String(),
 		OngNome:  ong.Nome,
 		OngEmail: ong.Email,
-	}, userJWT)
+	}, c.GetString("user_token"))
 	if metaErr != nil {
 		fmt.Printf("⚠️ Aviso: não foi possível atualizar metadata do usuário: %s\n", metaErr.Error())
 	}
@@ -226,15 +221,19 @@ func CreateOng(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/ongs/{id}/logo [post]
 func UploadOngLogo(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID da ONG inválido")
 	}
 
+	token := c.GetString("token")
+
+	// Valida ownership via RLS antes de processar o arquivo
 	var ong models.Ong
-	if err := db.First(&ong, "id = ?", ongID).Error; err != nil {
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		return tx.First(&ong, "id = ?", ongID).Error
+	})
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("ONG não encontrada")
 		}
@@ -245,15 +244,14 @@ func UploadOngLogo(c *gin.Context) error {
 	if err != nil || file == nil {
 		return errors.New("nenhuma imagem enviada")
 	}
-
 	if !utils.IsValidImage(file) {
 		return errors.New("tipo de imagem inválido")
 	}
 
-	// Remove logo anterior do storage, se existir
+	// Remove logo anterior do storage (se existir)
 	if ong.Logo != "" {
 		if objectPath, pathErr := utils.ExtractObjectPath(ong.Logo, utils.SupabaseBucketOngs); pathErr == nil {
-			if delErr := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); delErr != nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath, c.GetString("user_token")); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar logo anterior do storage: %s\n", delErr.Error())
 			}
 		}
@@ -272,13 +270,18 @@ func UploadOngLogo(c *gin.Context) error {
 		ongID.String(),
 		ong.Nome,
 		0,
+		c.GetString("user_token"),
 	)
 	if err != nil {
 		return err
 	}
 
-	ong.Logo = url
-	if err := db.Save(&ong).Error; err != nil {
+	// Salva nova URL via RLS
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		ong.Logo = url
+		return tx.Save(&ong).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -299,36 +302,44 @@ func UploadOngLogo(c *gin.Context) error {
 // @Failure 404 {object} map[string]string
 // @Router /api/v1/ongs/{id}/logo [delete]
 func DeleteOngLogo(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID da ONG inválido")
 	}
 
-	var ong models.Ong
-	if err := db.First(&ong, "id = ?", ongID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("ONG não encontrada")
+	token := c.GetString("token")
+
+	var (
+		ong        models.Ong
+		objectPath string
+	)
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		if err := tx.First(&ong, "id = ?", ongID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("ONG não encontrada")
+			}
+			return err
 		}
+		if ong.Logo == "" {
+			return errors.New("ONG não possui logo")
+		}
+		if path, pathErr := utils.ExtractObjectPath(ong.Logo, utils.SupabaseBucketOngs); pathErr == nil {
+			objectPath = path
+		} else {
+			fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
+		}
+		ong.Logo = ""
+		return tx.Save(&ong).Error
+	})
+	if err != nil {
 		return err
 	}
 
-	if ong.Logo == "" {
-		return errors.New("ONG não possui logo")
-	}
-
-	if objectPath, pathErr := utils.ExtractObjectPath(ong.Logo, utils.SupabaseBucketOngs); pathErr == nil {
-		if err := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath); err != nil {
+	// Remove do storage após commit do banco
+	if objectPath != "" {
+		if err := utils.DeleteFile(utils.SupabaseBucketOngs, objectPath, c.GetString("user_token")); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar logo do storage: %s\n", err.Error())
 		}
-	} else {
-		fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
-	}
-
-	ong.Logo = ""
-	if err := db.Save(&ong).Error; err != nil {
-		return err
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -357,53 +368,54 @@ func UpdateOng(c *gin.Context) error {
 		return fmt.Errorf("body inválido: %w", err)
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID da ONG inválido")
 	}
 
 	var ong models.Ong
-	if err := db.First(&ong, "id = ?", ongID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("ONG não encontrada")
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&ong, "id = ?", ongID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("ONG não encontrada")
+			}
+			return err
 		}
-		return err
-	}
 
-	if nome := strings.TrimSpace(req.Nome); nome != "" {
-		ong.Nome = nome
-	}
-	if email := strings.TrimSpace(req.Email); email != "" {
-		ong.Email = email
-	}
-	if req.Endereco != "" {
-		ong.Endereco = strings.TrimSpace(req.Endereco)
-	}
-	if req.Telefone != "" {
-		ong.Telefone = strings.TrimSpace(req.Telefone)
-	}
-	if req.WhatsappLink != "" {
-		ong.WhatsappLink = strings.TrimSpace(req.WhatsappLink)
-	}
-	if req.Descricao != "" {
-		ong.Descricao = strings.TrimSpace(req.Descricao)
-	}
-	if req.Site != "" {
-		ong.Site = strings.TrimSpace(req.Site)
-	}
-	if req.NomeResponsavel != "" {
-		ong.NomeResponsavel = strings.TrimSpace(req.NomeResponsavel)
-	}
-	if req.Instagram != "" {
-		ong.Instagram = strings.TrimSpace(req.Instagram)
-	}
-	if req.Regiao != "" {
-		ong.Regiao = req.Regiao
-	}
+		if nome := strings.TrimSpace(req.Nome); nome != "" {
+			ong.Nome = nome
+		}
+		if email := strings.TrimSpace(req.Email); email != "" {
+			ong.Email = email
+		}
+		if req.Endereco != "" {
+			ong.Endereco = strings.TrimSpace(req.Endereco)
+		}
+		if req.Telefone != "" {
+			ong.Telefone = strings.TrimSpace(req.Telefone)
+		}
+		if req.WhatsappLink != "" {
+			ong.WhatsappLink = strings.TrimSpace(req.WhatsappLink)
+		}
+		if req.Descricao != "" {
+			ong.Descricao = strings.TrimSpace(req.Descricao)
+		}
+		if req.Site != "" {
+			ong.Site = strings.TrimSpace(req.Site)
+		}
+		if req.NomeResponsavel != "" {
+			ong.NomeResponsavel = strings.TrimSpace(req.NomeResponsavel)
+		}
+		if req.Instagram != "" {
+			ong.Instagram = strings.TrimSpace(req.Instagram)
+		}
+		if req.Regiao != "" {
+			ong.Regiao = req.Regiao
+		}
 
-	if err := db.Save(&ong).Error; err != nil {
+		return tx.Save(&ong).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -425,21 +437,20 @@ func UpdateOng(c *gin.Context) error {
 // @Failure 500 {object} map[string]string
 // @Router /api/v1/ongs/{id} [delete]
 func DeleteOng(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	ongID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID da ONG inválido")
 	}
 
-	result := db.Where("id = ?", ongID).Delete(&models.Ong{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("ONG não encontrada")
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "ONG removida com sucesso"})
-	return nil
+	return database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		result := tx.Where("id = ?", ongID).Delete(&models.Ong{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("ONG não encontrada")
+		}
+		c.JSON(http.StatusOK, gin.H{"message": "ONG removida com sucesso"})
+		return nil
+	})
 }

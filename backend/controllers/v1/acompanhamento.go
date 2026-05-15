@@ -2,7 +2,9 @@ package v1
 
 import (
 	"errors"
+	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"ongpet/database"
@@ -41,64 +43,121 @@ type CreateLogAcompanhamentoInput struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/acompanhamentos [post]
 func CreateAcompanhamento(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	var req CreateAcompanhamentoInput
 	if err := c.ShouldBindJSON(&req); err != nil {
 		return err
 	}
 
-	// Verificar se o pet existe
-	var pet models.Pet
-	if err := db.First(&pet, "id = ?", req.PetID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Pet não encontrado")
+	var result models.Acompanhamento
+
+	err := database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		var pet models.Pet
+		if err := tx.First(&pet, "id = ?", req.PetID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Pet não encontrado")
+			}
+			return err
 		}
+
+		result = models.Acompanhamento{
+			PetID:            req.PetID,
+			OngID:            pet.OngID,
+			AdotanteNome:     req.AdotanteNome,
+			AdotanteTelefone: req.AdotanteTelefone,
+			AdotanteEmail:    req.AdotanteEmail,
+			Frequencia:       req.Frequencia,
+			ProximaData:      req.ProximaData,
+			Status:           models.AcompanhamentoAtivo,
+			LembreteEnviado:  false,
+		}
+
+		return tx.Create(&result).Error
+	})
+
+	if err != nil {
 		return err
 	}
 
-	acompanhamento := models.Acompanhamento{
-		PetID:            req.PetID,
-		OngID:            pet.OngID,
-		AdotanteNome:     req.AdotanteNome,
-		AdotanteTelefone: req.AdotanteTelefone,
-		AdotanteEmail:    req.AdotanteEmail,
-		Frequencia:       req.Frequencia,
-		ProximaData:      req.ProximaData,
-		Status:           models.AcompanhamentoAtivo,
-		LembreteEnviado:  false, // novo acompanhamento nunca teve lembrete enviado
-	}
-
-	if err := db.Create(&acompanhamento).Error; err != nil {
-		return err
-	}
-
-	c.JSON(http.StatusCreated, mapAcompanhamentoToDTO(acompanhamento))
+	c.JSON(http.StatusCreated, mapAcompanhamentoToDTO(result))
 	return nil
+}
+
+type AcompanhamentoListResponse struct {
+	Dados          []models.AcompanhamentoDTO `json:"dados"`
+	TotalRegistros int64                      `json:"total_registros"`
+	TotalPaginas   int                        `json:"total_paginas"`
+	ProximaPagina  bool                       `json:"proxima_pagina"`
 }
 
 // @Summary Lista todos os acompanhamentos da ONG
 // @Tags Acompanhamento
 // @Produce json
-// @Success 200 {array} models.AcompanhamentoDTO
+// @Param page  query int false "Página (default: 1)"
+// @Param limit query int false "Itens por página (default: 20)"
+// @Success 200 {object} v1.AcompanhamentoListResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/acompanhamentos [get]
 func ListAcompanhamentos(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
+	pageStr  := c.DefaultQuery("page",  "1")
+	limitStr := c.DefaultQuery("limit", "20")
 
-	var acompanhamentos []models.Acompanhamento
-	if err := db.Preload("Pet").Preload("Logs", func(db *gorm.DB) *gorm.DB {
-		return db.Order("data_contato DESC")
-	}).Order("proxima_data ASC").Find(&acompanhamentos).Error; err != nil {
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		return errors.New("page inválido")
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		return errors.New("limit inválido")
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	var (
+		total int64
+		dtos  []models.AcompanhamentoDTO
+	)
+
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		base := tx.Model(&models.Acompanhamento{})
+
+		if err := base.Count(&total).Error; err != nil {
+			return err
+		}
+
+		offset := (page - 1) * limit
+		var acompanhamentos []models.Acompanhamento
+		if err := tx.
+			Preload("Pet").
+			Preload("Logs", func(db *gorm.DB) *gorm.DB {
+				return db.Order("data_contato DESC")
+			}).
+			Order("proxima_data ASC").
+			Offset(offset).
+			Limit(limit).
+			Find(&acompanhamentos).Error; err != nil {
+			return err
+		}
+
+		dtos = make([]models.AcompanhamentoDTO, len(acompanhamentos))
+		for i, a := range acompanhamentos {
+			dtos[i] = mapAcompanhamentoToDTO(a)
+		}
+		return nil
+	})
+
+	if err != nil {
 		return err
 	}
 
-	dtos := make([]models.AcompanhamentoDTO, len(acompanhamentos))
-	for i, a := range acompanhamentos {
-		dtos[i] = mapAcompanhamentoToDTO(a)
-	}
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
 
-	c.JSON(http.StatusOK, dtos)
+	c.JSON(http.StatusOK, AcompanhamentoListResponse{
+		Dados:          dtos,
+		TotalRegistros: total,
+		TotalPaginas:   totalPages,
+		ProximaPagina:  int64(page*limit) < total,
+	})
 	return nil
 }
 
@@ -112,8 +171,6 @@ func ListAcompanhamentos(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/acompanhamentos/{id}/logs [post]
 func CreateLogAcompanhamento(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID de acompanhamento inválido")
@@ -128,13 +185,15 @@ func CreateLogAcompanhamento(c *gin.Context) error {
 		req.DataContato = time.Now()
 	}
 
-	entry := models.LogAcompanhamento{
-		AcompanhamentoID: id,
-		DataContato:      req.DataContato,
-		Notas:            req.Notas,
-	}
+	var entry models.LogAcompanhamento
 
-	err = db.Transaction(func(tx *gorm.DB) error {
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		entry = models.LogAcompanhamento{
+			AcompanhamentoID: id,
+			DataContato:      req.DataContato,
+			Notas:            req.Notas,
+		}
+
 		if err := tx.Create(&entry).Error; err != nil {
 			return err
 		}
@@ -142,14 +201,12 @@ func CreateLogAcompanhamento(c *gin.Context) error {
 		if req.ProximaData != nil {
 			// Ao atualizar proxima_data, reseta lembrete_enviado para false
 			// para que o scheduler envie novamente para a nova data
-			if err := tx.Model(&models.Acompanhamento{}).
+			return tx.Model(&models.Acompanhamento{}).
 				Where("id = ?", id).
 				Updates(map[string]interface{}{
 					"proxima_data":     req.ProximaData,
 					"lembrete_enviado": false,
-				}).Error; err != nil {
-				return err
-			}
+				}).Error
 		}
 
 		return nil
@@ -171,21 +228,28 @@ func CreateLogAcompanhamento(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/acompanhamentos/{id}/logs [get]
 func GetAcompanhamentoLogs(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID de acompanhamento inválido")
 	}
 
-	var logs []models.LogAcompanhamento
-	if err := db.Where("acompanhamento_id = ?", id).Order("data_contato DESC").Find(&logs).Error; err != nil {
-		return err
-	}
+	var dtos []models.LogAcompanhamentoDTO
 
-	dtos := make([]models.LogAcompanhamentoDTO, len(logs))
-	for i, l := range logs {
-		dtos[i] = mapLogToDTO(l)
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		var logs []models.LogAcompanhamento
+		if err := tx.Where("acompanhamento_id = ?", id).Order("data_contato DESC").Find(&logs).Error; err != nil {
+			return err
+		}
+
+		dtos = make([]models.LogAcompanhamentoDTO, len(logs))
+		for i, l := range logs {
+			dtos[i] = mapLogToDTO(l)
+		}
+		return nil
+	})
+
+	if err != nil {
+		return err
 	}
 
 	c.JSON(http.StatusOK, dtos)

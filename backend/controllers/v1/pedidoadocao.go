@@ -56,15 +56,8 @@ type PedidoAdocaoListResponse struct {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao [get]
 func ReadPedidosAdocao(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-	query := db.Model(&models.PedidoAdocao{})
-
-	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
-		query = query.Where("ong_id = ?", ongID)
-	}
-	if petID := strings.TrimSpace(c.Query("pet_id")); petID != "" {
-		query = query.Where("pet_id = ?", petID)
-	}
+	ongFilter := strings.TrimSpace(c.Query("ong_id"))
+	petFilter := strings.TrimSpace(c.Query("pet_id"))
 
 	pageStr  := c.DefaultQuery("page",  "1")
 	limitStr := c.DefaultQuery("limit", "10")
@@ -81,24 +74,37 @@ func ReadPedidosAdocao(c *gin.Context) error {
 		limit = 100
 	}
 
-	var total int64
-	if err := query.Count(&total).Error; err != nil {
+	var (
+		total   int64
+		pedidos []models.PedidoAdocao
+	)
+
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		query := tx.Model(&models.PedidoAdocao{})
+		if ongFilter != "" {
+			query = query.Where("ong_id = ?", ongFilter)
+		}
+		if petFilter != "" {
+			query = query.Where("pet_id = ?", petFilter)
+		}
+
+		if err := query.Count(&total).Error; err != nil {
+			return err
+		}
+
+		offset := (page - 1) * limit
+		return query.
+			Preload("Respostas.CampoFormulario").
+			Order("created_at DESC").
+			Offset(offset).
+			Limit(limit + 1).
+			Find(&pedidos).Error
+	})
+	if err != nil {
 		return err
 	}
 
-	offset     := (page - 1) * limit
 	totalPages := int(math.Ceil(float64(total) / float64(limit)))
-
-	var pedidos []models.PedidoAdocao
-	if err := query.
-		Preload("Respostas.CampoFormulario").
-		Order("created_at DESC").
-		Offset(offset).
-		Limit(limit + 1).
-		Find(&pedidos).Error; err != nil {
-		return err
-	}
-
 	hasNext := false
 	if len(pedidos) > limit {
 		hasNext = true
@@ -128,17 +134,17 @@ func ReadPedidosAdocao(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [get]
 func ReadPedidoAdocao(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pedido inválido")
 	}
 
 	var pedido models.PedidoAdocao
-	if err := db.
-		Preload("Respostas.CampoFormulario").
-		First(&pedido, "id = ?", pedidoID).Error; err != nil {
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		return tx.Preload("Respostas.CampoFormulario").
+			First(&pedido, "id = ?", pedidoID).Error
+	})
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("Pedido de adoção não encontrado")
 		}
@@ -279,13 +285,13 @@ func CreatePedidoAdocao(c *gin.Context) error {
 			// Cria os dados completos para o email
 			emailData := utils.AdoptionRequestFullData{
 				PetNome:             pet.Nome,
-				PetEspecie:          pet.Especie,
+				PetEspecie:          string(pet.Especie),
 				PetRaca:             pet.Raca,
 				PetIdade:            pet.Idade,
 				PetDescricao:        pet.Descricao,
 				PetPeso:             pet.Peso,
-				PetPorte:            pet.Porte,
-				PetRegiao:           pet.Regiao,
+				PetPorte:            string(pet.Porte),
+				PetRegiao:           string(pet.Regiao),
 				OngNome:             ong.Nome,
 				SolicitanteName:     requesterName,
 				RespostasFormulario: respostasMap,
@@ -337,28 +343,28 @@ func CreatePedidoAdocao(c *gin.Context) error {
 // @Security ApiKeyAuth
 // @Router /api/v1/pedidos-adocao/{id} [delete]
 func DeletePedidoAdocao(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pedido inválido")
 	}
 
-	if err := db.Where("pedido_adocao_id = ?", pedidoID).
-		Delete(&models.RespostaFormulario{}).Error; err != nil {
-		return err
-	}
+	return database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.Where("pedido_adocao_id = ?", pedidoID).
+			Delete(&models.RespostaFormulario{}).Error; err != nil {
+			return err
+		}
 
-	result := db.Where("id = ?", pedidoID).Delete(&models.PedidoAdocao{})
-	if result.Error != nil {
-		return result.Error
-	}
-	if result.RowsAffected == 0 {
-		return errors.New("Pedido de adoção não encontrado")
-	}
+		result := tx.Where("id = ?", pedidoID).Delete(&models.PedidoAdocao{})
+		if result.Error != nil {
+			return result.Error
+		}
+		if result.RowsAffected == 0 {
+			return errors.New("Pedido de adoção não encontrado")
+		}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Pedido de adoção removido com sucesso"})
-	return nil
+		c.JSON(http.StatusOK, gin.H{"message": "Pedido de adoção removido com sucesso"})
+		return nil
+	})
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -421,7 +427,7 @@ func UploadRespostaImagem(c *gin.Context) error {
 
 	if resposta.Valor != "" {
 		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor, utils.SupabaseBucketFormularios); pathErr == nil {
-			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); delErr != nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath, ""); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
 			}
 		} else {
@@ -442,6 +448,7 @@ func UploadRespostaImagem(c *gin.Context) error {
 		pedidoID.String(),
 		cfg.Label,
 		1,
+		"",
 	)
 	if err != nil {
 		return err
@@ -495,47 +502,63 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		return errors.New("status inválido. Use: pendente, aprovado, rejeitado ou cancelado")
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
 	pedidoID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do pedido inválido")
 	}
 
-	var pedido models.PedidoAdocao
-	if err := db.First(&pedido, "id = ?", pedidoID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Pedido de adoção não encontrado")
+	var (
+		pedido    models.PedidoAdocao
+		oldStatus models.PedidoAdocaoStatus
+	)
+
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&pedido, "id = ?", pedidoID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Pedido de adoção não encontrado")
+			}
+			return err
 		}
-		return err
-	}
-
-	oldStatus := pedido.Status
-	pedido.Status = req.Status
-
-	if err := db.Save(&pedido).Error; err != nil {
-		return err
-	}
-
-	if err := db.
-		Preload("Respostas.CampoFormulario").
-		Preload("Pet").
-		Preload("Ong").
-		First(&pedido, "id = ?", pedidoID).Error; err != nil {
+		oldStatus = pedido.Status
+		pedido.Status = req.Status
+		if err := tx.Save(&pedido).Error; err != nil {
+			return err
+		}
+		return tx.
+			Preload("Respostas.CampoFormulario").
+			First(&pedido, "id = ?", pedidoID).Error
+	})
+	if err != nil {
 		return err
 	}
 
 	// 📧 Enviar email e 💬 WhatsApp para o solicitante quando status mudar para aprovado ou rejeitado
 	if (req.Status == models.PedidoAdocaoAprovado || req.Status == models.PedidoAdocaoRejeitado) &&
 		oldStatus == models.PedidoAdocaoPendente {
+		pedidoID := pedidoID // captura para goroutine
+		respostas := pedido.Respostas
+		newStatus := req.Status
 		go func() {
+			// Carrega Pet e ONG fora da transação principal
+			db := database.GetDB()
+			var pet models.Pet
+			var ong models.Ong
+			if err := db.First(&pet, "id = ?", pedido.PetID).Error; err != nil {
+				fmt.Printf("⚠️ Erro ao carregar pet para notificação (pedido: %s): %v\n", pedidoID, err)
+				return
+			}
+			if err := db.First(&ong, "id = ?", pedido.OngID).Error; err != nil {
+				fmt.Printf("⚠️ Erro ao carregar ong para notificação (pedido: %s): %v\n", pedidoID, err)
+				return
+			}
+
 			// Extrai email, nome e telefone do solicitante das respostas
 			// usando o Label da configuração (texto legível) em vez do Nome interno do campo
 			var solicitantEmail string
 			var solicitanteName string
 			var solicitantePhone string
 
-			for _, resposta := range pedido.Respostas {
+			for _, resposta := range respostas {
 				var cfg models.CampoConfiguracao
 				if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
 					continue
@@ -556,18 +579,18 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 			} else {
 				var subject, body string
 
-				if req.Status == models.PedidoAdocaoAprovado {
+				if newStatus == models.PedidoAdocaoAprovado {
 					subject, body = utils.NewAdoptionApprovedEmail(
 						solicitanteName,
-						pedido.Pet.Nome,
-						pedido.Ong.Nome,
-						pedido.Ong.Telefone,
+						pet.Nome,
+						ong.Nome,
+						ong.Telefone,
 					)
 				} else {
 					subject, body = utils.NewAdoptionRejectedEmail(
 						solicitanteName,
-						pedido.Pet.Nome,
-						pedido.Ong.Nome,
+						pet.Nome,
+						ong.Nome,
 						"Infelizmente sua solicitação de adoção foi rejeitada.",
 					)
 				}
@@ -580,7 +603,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 						fmt.Println("⚠️ Erro ao enviar email para solicitante:", err)
 					} else {
 						statusMsg := "aprovado"
-						if req.Status == models.PedidoAdocaoRejeitado {
+						if newStatus == models.PedidoAdocaoRejeitado {
 							statusMsg = "rejeitado"
 						}
 						fmt.Printf("✅ Email de %s enviado para: %s\n", statusMsg, solicitantEmail)
@@ -592,20 +615,20 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 			if solicitantePhone == "" {
 				fmt.Println("⚠️ Telefone do solicitante não encontrado nas respostas, WhatsApp não enviado")
 			} else {
-				if req.Status == models.PedidoAdocaoAprovado {
+				if newStatus == models.PedidoAdocaoAprovado {
 					utils.SendWhatsAppAdoptionApproved(
 						solicitantePhone,
 						solicitanteName,
-						pedido.Pet.Nome,
-						pedido.Ong.Nome,
-						pedido.Ong.Telefone,
+						pet.Nome,
+						ong.Nome,
+						ong.Telefone,
 					)
-				} else if req.Status == models.PedidoAdocaoRejeitado {
+				} else if newStatus == models.PedidoAdocaoRejeitado {
 					utils.SendWhatsAppAdoptionRejected(
 						solicitantePhone,
 						solicitanteName,
-						pedido.Pet.Nome,
-						pedido.Ong.Nome,
+						pet.Nome,
+						ong.Nome,
 					)
 				}
 			}

@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
-	"strings"
 	"testing"
 
+	"ongpet/controllers"
 	v1 "ongpet/controllers/v1"
 	"ongpet/database"
 	"ongpet/models"
@@ -168,85 +168,8 @@ func newRouter() *gin.Engine {
 			c.Set("token", "test-token")
 			c.Set("user_id", "00000000-0000-0000-0000-000000000001")
 			if err := fn(c); err != nil {
-				status := http.StatusInternalServerError
-				msg := err.Error()
-
-				switch msg {
-				case
-					// ONG
-					"ID da ONG inválido",
-					"ONG não possui logo",
-					// Pet
-					"ID do pet inválido",
-					"ID da imagem inválido",
-					"ong_id é obrigatório",
-					"o pet pode ter no máximo 5 imagens",
-					// Formulário / Campo
-					"ID do formulário inválido",
-					"ID do campo inválido",
-					"nome é obrigatório",
-					"configuracao.label é obrigatório",
-					"configuracao.tipo é obrigatório",
-					"o formulário não possui imagem cadastrada",
-					// Pedido de Adoção
-					"ID do pedido inválido",
-					"ID da resposta inválido",
-					"pet_id é obrigatório",
-					"status inválido. Use: pendente, aprovado, rejeitado ou cancelado",
-					// Acompanhamento
-					"ID de acompanhamento inválido",
-					// Banner
-					"ID do banner inválido",
-					"este banner não possui imagem",
-					"imagem é obrigatória",
-					"title é obrigatório",
-					"instagram_url é obrigatório",
-					"start_at é obrigatório",
-					"end_at é obrigatório",
-					"start_at deve estar no formato RFC3339 (ex: 2026-03-11T15:04:05Z)",
-					"end_at deve estar no formato RFC3339 (ex: 2026-03-11T15:04:05Z)",
-					"start_at deve estar no formato RFC3339",
-					"end_at deve estar no formato RFC3339",
-					// Shared
-					"page inválido",
-					"limit inválido",
-					"nenhuma imagem enviada",
-					"tipo de imagem inválido":
-					status = http.StatusBadRequest
-
-				case
-					"ONG não encontrada",
-					"Pet não encontrado",
-					"Imagem não encontrada",
-					"Formulário não encontrado",
-					"Campo não encontrado",
-					"Pedido de adoção não encontrado",
-					"Resposta não encontrada",
-					"Banner não encontrado":
-					status = http.StatusNotFound
-
-				case
-					"email já cadastrado",
-					"usuário já possui uma ONG cadastrada":
-					status = http.StatusConflict
-
-				case
-					"usuário não autenticado",
-					"user_id inválido no token":
-					status = http.StatusUnauthorized
-
-				default:
-					if strings.HasPrefix(msg, "body inválido") ||
-						strings.HasPrefix(msg, "invalid character") ||
-						strings.HasPrefix(msg, "invalid syntax") ||
-						strings.HasPrefix(msg, "Key:") ||
-						msg == "EOF" {
-						status = http.StatusBadRequest
-					}
-				}
-
 				if !c.Writer.Written() {
-					c.JSON(status, gin.H{"error": msg})
+					c.JSON(controllers.HttpStatusForError(err.Error()), gin.H{"error": err.Error()})
 				}
 			}
 		}

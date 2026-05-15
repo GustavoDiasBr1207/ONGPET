@@ -7,9 +7,7 @@ import (
 	"io"
 	"mime/multipart"
 	"net/http"
-	"net/textproto"
 	"os"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -20,6 +18,7 @@ var (
 	SupabaseBucketPets        string
 	SupabaseBucketOngs        string
 	SupabaseBucketFormularios string
+	SupabaseBucketBanners     string
 )
 
 // InitSupabase inicializa variáveis do Supabase Storage (REST API)
@@ -30,12 +29,17 @@ func InitSupabase() {
 	SupabaseBucketPets        = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_PETS"))
 	SupabaseBucketOngs        = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_ONGS"))
 	SupabaseBucketFormularios = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_FORMULARIOS"))
+	SupabaseBucketBanners     = strings.TrimSpace(os.Getenv("SUPABASE_BUCKET_BANNERS"))
 
 	if SupabaseURL == "" || SupabaseKey == "" {
 		panic("❌ SUPABASE_URL e SUPABASE_KEY são obrigatórios")
 	}
 	if SupabaseBucketPets == "" || SupabaseBucketOngs == "" || SupabaseBucketFormularios == "" {
 		panic("❌ SUPABASE_BUCKET_PETS, SUPABASE_BUCKET_ONGS e SUPABASE_BUCKET_FORMULARIOS são obrigatórios")
+	}
+	if SupabaseBucketBanners == "" {
+		SupabaseBucketBanners = SupabaseBucketOngs
+		fmt.Println("⚠️ SUPABASE_BUCKET_BANNERS não configurado, usando SUPABASE_BUCKET_ONGS como fallback")
 	}
 
 	fmt.Println("✅ Supabase Storage (REST) inicializado com sucesso")
@@ -51,100 +55,8 @@ func IsValidImage(file *multipart.FileHeader) bool {
 	}
 }
 
-// UploadFile envia arquivo para o Supabase Storage
-func UploadFile(
-	file *multipart.FileHeader,
-	bucket string,
-	petID string,
-	petName string,
-	position int,
-) (string, error) {
 
-	if !IsValidImage(file) {
-		return "", fmt.Errorf("tipo de imagem não suportado: %s", file.Header.Get("Content-Type"))
-	}
-
-	src, err := file.Open()
-	if err != nil {
-		return "", err
-	}
-	defer src.Close()
-
-	ext := filepath.Ext(file.Filename)
-	objectPath := fmt.Sprintf(
-		"%s/%s-%d%s",
-		petID,
-		slugify(petName),
-		position,
-		ext,
-	)
-
-	body := &bytes.Buffer{}
-	writer := multipart.NewWriter(body)
-
-	header := make(textproto.MIMEHeader)
-	header.Set(
-		"Content-Disposition",
-		fmt.Sprintf(`form-data; name="file"; filename="%s"`, file.Filename),
-	)
-	header.Set("Content-Type", file.Header.Get("Content-Type"))
-
-	part, err := writer.CreatePart(header)
-	if err != nil {
-		return "", err
-	}
-
-	if _, err = io.Copy(part, src); err != nil {
-		return "", err
-	}
-
-	if err = writer.Close(); err != nil {
-		return "", err
-	}
-
-	uploadURL := fmt.Sprintf(
-		"%s/storage/v1/object/%s/%s",
-		SupabaseURL,
-		bucket,
-		objectPath,
-	)
-
-	req, err := http.NewRequest(http.MethodPost, uploadURL, body)
-	if err != nil {
-		return "", err
-	}
-
-	req.Header.Set("Authorization", "Bearer "+SupabaseKey)
-	req.Header.Set("apikey", SupabaseKey)
-	req.Header.Set("Content-Type", writer.FormDataContentType())
-	req.Header.Set("x-upsert", "false")
-
-	resp, err := http.DefaultClient.Do(req)
-	if err != nil {
-		return "", err
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode >= 300 {
-		respBody, _ := io.ReadAll(resp.Body)
-		return "", fmt.Errorf(
-			"❌ upload falhou (%d): %s",
-			resp.StatusCode,
-			string(respBody),
-		)
-	}
-
-	publicURL := fmt.Sprintf(
-		"%s/storage/v1/object/public/%s/%s",
-		SupabaseURL,
-		bucket,
-		objectPath,
-	)
-
-	return publicURL, nil
-}
-
-func DeleteFile(bucket string, objectPath string) error {
+func DeleteFile(bucket string, objectPath string, authToken string) error {
 	deleteURL := fmt.Sprintf(
 		"%s/storage/v1/object/%s",
 		SupabaseURL,
@@ -163,7 +75,11 @@ func DeleteFile(bucket string, objectPath string) error {
 		return err
 	}
 
-	req.Header.Set("Authorization", "Bearer "+SupabaseKey)
+	bearerToken := authToken
+	if bearerToken == "" {
+		bearerToken = SupabaseKey
+	}
+	req.Header.Set("Authorization", "Bearer "+bearerToken)
 	req.Header.Set("apikey", SupabaseKey)
 	req.Header.Set("Content-Type", "application/json")
 

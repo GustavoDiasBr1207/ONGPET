@@ -32,7 +32,6 @@ func Connect(dsn string) *gorm.DB {
 		log.Fatal("❌ Erro ao conectar no banco:", err)
 	}
 
-	// Configurar connection pool para melhor performance
 	sqlDB, err := db.DB()
 	if err != nil {
 		log.Fatal("❌ Erro ao obter SQL DB:", err)
@@ -59,22 +58,51 @@ func SetDB(d *gorm.DB) {
 	db = d
 }
 
-// GetUserDB retorna uma sessão com o JWT do usuário injetado,
-// ativando auth.uid() nas políticas RLS do Supabase.
-// Use em todas as rotas autenticadas.
-func GetUserDB(token string) *gorm.DB {
+// isPostgres retorna true se a conexão ativa for Postgres.
+// Usado para pular comandos exclusivos do Postgres em testes com SQLite.
+func isPostgres() bool {
+	if db == nil {
+		return false
+	}
+	return db.Dialector.Name() == "postgres"
+}
+
+// WithUserDB executa fn dentro de uma transação com a identidade do usuário
+// injetada via request.jwt.claims, ativando o RLS do Supabase corretamente.
+//
+// Corrige três problemas do GetUserDB anterior:
+//   - A: a sessão configurada era descartada e uma nova (limpa) era retornada
+//   - C: SET LOCAL vazava para outras conexões do pool — a transação prende
+//        todo o bloco na mesma conexão do início ao fim
+//   - D: o token agora é o JSON dos claims (não o JWT base64), permitindo
+//        que auth.uid() leia o "sub" corretamente
+//
+// Em testes com SQLite os comandos Postgres são pulados automaticamente.
+// Use em todas as rotas autenticadas no lugar de GetUserDB.
+func WithUserDB(token string, fn func(tx *gorm.DB) error) error {
 	if db == nil {
 		log.Fatal("❌ Banco de dados não inicializado")
 	}
 
-	session := db.Session(&gorm.Session{NewDB: true})
+	pg := isPostgres()
 
-	// Injeta o JWT na sessão do Postgres → RLS consegue ler auth.uid().
-	// Os erros são ignorados intencionalmente: em testes com SQLite esses
-	// comandos não existem, mas não devem impedir a execução.
-	session.Exec("SELECT set_config('request.jwt', ?, true)", token)
-	session.Exec("SET LOCAL role = authenticated")
+	return db.Transaction(func(tx *gorm.DB) error {
+		if pg {
+			// Injeta o JSON dos claims na transação.
+			// SET LOCAL garante que o valor existe apenas dentro desta transação
+			// e é descartado automaticamente ao final — sem risco de vazamento
+			// entre conexões do pool.
+			if err := tx.Exec(
+				"SELECT set_config('request.jwt.claims', ?, true)", token,
+			).Error; err != nil {
+				return err
+			}
 
-	// Retorna sempre uma sessão limpa, sem erros acumulados das Exec acima.
-	return db.Session(&gorm.Session{NewDB: true})
+			if err := tx.Exec("SET LOCAL ROLE authenticated").Error; err != nil {
+				return err
+			}
+		}
+
+		return fn(tx)
+	})
 }

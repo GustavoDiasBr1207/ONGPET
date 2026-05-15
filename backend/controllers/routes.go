@@ -12,6 +12,13 @@ import (
 	ginSwagger "github.com/swaggo/gin-swagger"
 )
 
+var (
+	// 20 req/min por IP para rotas públicas de alto custo (cria pedido + dispara email + WhatsApp)
+	adoptionLimiter = RateLimit(20, time.Minute)
+	// 60 req/min por IP para uploads públicos
+	uploadLimiter = RateLimit(60, time.Minute)
+)
+
 // SetupRoutes configura todas as rotas da API OngPet
 func SetupRoutes() *gin.Engine {
 	r := gin.Default()
@@ -66,14 +73,14 @@ func SetupRoutes() *gin.Engine {
 		api.POST("/pets/:id/imagens", RequireAuth(), Handle(v1.UploadPetImages))
 		api.DELETE("/pets/:id/imagens/:imageId", RequireAuth(), Handle(v1.DeletePetImage))
 
-		// Banner
+		// Banner (escrita restrita a admins)
 		api.GET("/banners", Handle(v1.ReadBanners))
 		api.GET("/banners/:id", Handle(v1.ReadBanner))
-		api.POST("/banners", RequireAuth(), Handle(v1.CreateBanner))
-		api.POST("/banners/:id/imagem", RequireAuth(), Handle(v1.UploadBannerImage))
-		api.DELETE("/banners/:id/imagem", RequireAuth(), Handle(v1.DeleteBannerImage))
-		api.PUT("/banners/:id", RequireAuth(), Handle(v1.UpdateBanner))
-		api.DELETE("/banners/:id", RequireAuth(), Handle(v1.DeleteBanner))
+		api.POST("/banners", RequireAuth(), RequireAdmin(), Handle(v1.CreateBanner))
+		api.POST("/banners/:id/imagem", RequireAuth(), RequireAdmin(), Handle(v1.UploadBannerImage))
+		api.DELETE("/banners/:id/imagem", RequireAuth(), RequireAdmin(), Handle(v1.DeleteBannerImage))
+		api.PUT("/banners/:id", RequireAuth(), RequireAdmin(), Handle(v1.UpdateBanner))
+		api.DELETE("/banners/:id", RequireAuth(), RequireAdmin(), Handle(v1.DeleteBanner))
 
 		// Formulário
 		api.GET("/formularios", Handle(v1.ReadFormularios))
@@ -92,10 +99,10 @@ func SetupRoutes() *gin.Engine {
 		// Pedidos de adoção
 		api.GET("/pedidos-adocao", RequireAuth(), Handle(v1.ReadPedidosAdocao))
 		api.GET("/pedidos-adocao/:id", RequireAuth(), Handle(v1.ReadPedidoAdocao))
-		api.POST("/pedidos-adocao", Handle(v1.CreatePedidoAdocao))
+		api.POST("/pedidos-adocao", adoptionLimiter, Handle(v1.CreatePedidoAdocao))
 		api.PUT("/pedidos-adocao/:id/status", RequireAuth(), Handle(v1.UpdateStatusPedidoAdocao))
 		api.DELETE("/pedidos-adocao/:id", RequireAuth(), Handle(v1.DeletePedidoAdocao))
-		api.POST("/pedidos-adocao/:pedidoId/respostas/:respostaId/imagem", Handle(v1.UploadRespostaImagem))
+		api.POST("/pedidos-adocao/:pedidoId/respostas/:respostaId/imagem", uploadLimiter, Handle(v1.UploadRespostaImagem))
 
 		// Acompanhamento
 		api.POST("/acompanhamentos", RequireAuth(), Handle(v1.CreateAcompanhamento))
@@ -103,9 +110,9 @@ func SetupRoutes() *gin.Engine {
 		api.POST("/acompanhamentos/:id/logs", RequireAuth(), Handle(v1.CreateLogAcompanhamento))
 		api.GET("/acompanhamentos/:id/logs", RequireAuth(), Handle(v1.GetAcompanhamentoLogs))
 
-		// Testes de Email
-		api.GET("/test/email-config", Handle(v1.CheckEmailConfig))
-		api.POST("/test/email", Handle(v1.SendTestEmail))
+		// Testes de Email (apenas admins)
+		api.GET("/test/email-config", RequireAuth(), RequireAdmin(), Handle(v1.CheckEmailConfig))
+		api.POST("/test/email", RequireAuth(), RequireAdmin(), Handle(v1.SendTestEmail))
 	}
 
 	// 404

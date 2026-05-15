@@ -8,6 +8,7 @@ import (
 	"testing"
 	"time"
 
+	v1 "ongpet/controllers/v1"
 	"ongpet/models"
 
 	"github.com/google/uuid"
@@ -159,9 +160,9 @@ func TestListarAcompanhamentos(t *testing.T) {
 			Method:         http.MethodGet,
 			ExpectedStatus: http.StatusOK,
 			CheckResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				var resp []models.AcompanhamentoDTO
+				var resp v1.AcompanhamentoListResponse
 				assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
-				assert.GreaterOrEqual(t, len(resp), 2)
+				assert.GreaterOrEqual(t, len(resp.Dados), 2)
 			},
 		},
 		{
@@ -170,8 +171,7 @@ func TestListarAcompanhamentos(t *testing.T) {
 			Method:         http.MethodGet,
 			ExpectedStatus: http.StatusOK,
 			CheckResponse: func(t *testing.T, w *httptest.ResponseRecorder) {
-				// só verifica que é um array JSON válido
-				var resp []models.AcompanhamentoDTO
+				var resp v1.AcompanhamentoListResponse
 				assert.NoError(t, json.Unmarshal(w.Body.Bytes(), &resp))
 			},
 		},

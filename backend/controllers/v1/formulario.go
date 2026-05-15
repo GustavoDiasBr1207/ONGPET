@@ -51,7 +51,6 @@ type FormularioListResponse struct {
 
 // @Summary Lista todos os Formulários Modelo
 // @Tags FormularioModelo
-// @Security ApiKeyAuth
 // @Produce json
 // @Param ong_id query string false "Filtrar por ONG"
 // @Param page   query int    false "Página (default: 1)"
@@ -59,7 +58,8 @@ type FormularioListResponse struct {
 // @Success 200 {object} v1.FormularioListResponse
 // @Router /api/v1/formularios [get]
 func ReadFormularios(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
+	// Rota pública — sem token, sem RLS
+	db := database.GetDB()
 	query := db.Model(&models.FormularioModelo{})
 
 	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
@@ -115,13 +115,13 @@ func ReadFormularios(c *gin.Context) error {
 
 // @Summary Busca um Formulário Modelo pelo ID
 // @Tags FormularioModelo
-// @Security ApiKeyAuth
 // @Produce json
 // @Param id path string true "ID do Formulário"
 // @Success 200 {object} models.FormularioModelo
 // @Router /api/v1/formularios/{id} [get]
 func ReadFormulario(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
+	// Rota pública — sem token, sem RLS
+	db := database.GetDB()
 
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
@@ -164,86 +164,87 @@ func CreateFormulario(c *gin.Context) error {
 		return errors.New("ong_id é obrigatório")
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
-	if err := db.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("ONG não encontrada")
+	var formulario models.FormularioModelo
+	err := database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&models.Ong{}, "id = ?", req.OngID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("ONG não encontrada")
+			}
+			return err
 		}
-		return err
-	}
 
-	formulario := models.FormularioModelo{
-		OngID: req.OngID,
-		Nome:  req.Nome,
-	}
+		formulario = models.FormularioModelo{
+			OngID: req.OngID,
+			Nome:  req.Nome,
+		}
+		if err := tx.Create(&formulario).Error; err != nil {
+			return err
+		}
 
-	if err := db.Create(&formulario).Error; err != nil {
-		return err
-	}
-
-	camposPadroes := []CreateCampoInput{
-		{
-			Nome:  "Nome",
-			Ordem: 0,
-			Configuracao: models.CampoConfiguracao{
-				Label:       "Nome",
-				Placeholder: "Seu nome completo",
-				Tipo:        models.TipoCampoTexto,
-				Obrigatorio: true,
-				Ativo:       true,
+		camposPadroes := []CreateCampoInput{
+			{
+				Nome:  "Nome",
+				Ordem: 0,
+				Configuracao: models.CampoConfiguracao{
+					Label:       "Nome",
+					Placeholder: "Seu nome completo",
+					Tipo:        models.TipoCampoTexto,
+					Obrigatorio: true,
+					Ativo:       true,
+				},
 			},
-		},
-		{
-			Nome:  "Email",
-			Ordem: 1,
-			Configuracao: models.CampoConfiguracao{
-				Label:       "Email",
-				Placeholder: "seu_email@exemplo.com",
-				Tipo:        models.TipoCampoEmail,
-				Obrigatorio: true,
-				Ativo:       true,
+			{
+				Nome:  "Email",
+				Ordem: 1,
+				Configuracao: models.CampoConfiguracao{
+					Label:       "Email",
+					Placeholder: "seu_email@exemplo.com",
+					Tipo:        models.TipoCampoEmail,
+					Obrigatorio: true,
+					Ativo:       true,
+				},
 			},
-		},
-		{
-			Nome:  "Telefone",
-			Ordem: 2,
-			Configuracao: models.CampoConfiguracao{
-				Label:       "Telefone",
-				Placeholder: "(XX) 99999-9999",
-				Tipo:        models.TipoCampoTelefone,
-				Obrigatorio: true,
-				Ativo:       true,
+			{
+				Nome:  "Telefone",
+				Ordem: 2,
+				Configuracao: models.CampoConfiguracao{
+					Label:       "Telefone",
+					Placeholder: "(XX) 99999-9999",
+					Tipo:        models.TipoCampoTelefone,
+					Obrigatorio: true,
+					Ativo:       true,
+				},
 			},
-		},
-	}
+		}
 
-	for _, campoInput := range camposPadroes {
-		campo, err := buildCampo(formulario.ID, campoInput)
-		if err != nil {
-			return err
+		for _, campoInput := range camposPadroes {
+			campo, err := buildCampo(formulario.ID, campoInput)
+			if err != nil {
+				return err
+			}
+			if err := tx.Create(&campo).Error; err != nil {
+				return err
+			}
 		}
-		if err := db.Create(&campo).Error; err != nil {
-			return err
-		}
-	}
 
-	for i, campoInput := range req.Campos {
-		if campoInput.Ordem == 0 {
-			campoInput.Ordem = i + 3
+		for i, campoInput := range req.Campos {
+			if campoInput.Ordem == 0 {
+				campoInput.Ordem = i + 3
+			}
+			campo, err := buildCampo(formulario.ID, campoInput)
+			if err != nil {
+				return err
+			}
+			if err := tx.Create(&campo).Error; err != nil {
+				return err
+			}
 		}
-		campo, err := buildCampo(formulario.ID, campoInput)
-		if err != nil {
-			return err
-		}
-		if err := db.Create(&campo).Error; err != nil {
-			return err
-		}
-	}
 
-	if err := db.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
-		return tx.Order("ordem ASC")
-	}).First(&formulario, "id = ?", formulario.ID).Error; err != nil {
+		return tx.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("ordem ASC")
+		}).First(&formulario, "id = ?", formulario.ID).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -267,32 +268,32 @@ func UpdateFormulario(c *gin.Context) error {
 		return fmt.Errorf("body inválido: %w", err)
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do formulário inválido")
 	}
 
 	var formulario models.FormularioModelo
-	if err := db.First(&formulario, "id = ?", formularioID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Formulário não encontrado")
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&formulario, "id = ?", formularioID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Formulário não encontrado")
+			}
+			return err
 		}
-		return err
-	}
 
-	if nome := strings.TrimSpace(req.Nome); nome != "" {
-		formulario.Nome = nome
-	}
+		if nome := strings.TrimSpace(req.Nome); nome != "" {
+			formulario.Nome = nome
+		}
 
-	if err := db.Save(&formulario).Error; err != nil {
-		return err
-	}
-
-	if err := db.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
-		return tx.Order("ordem ASC")
-	}).First(&formulario, "id = ?", formularioID).Error; err != nil {
+		if err := tx.Save(&formulario).Error; err != nil {
+			return err
+		}
+		return tx.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("ordem ASC")
+		}).First(&formulario, "id = ?", formularioID).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -310,40 +311,40 @@ func UpdateFormulario(c *gin.Context) error {
 // @Param id path string true "ID do Formulário"
 // @Router /api/v1/formularios/{id} [delete]
 func DeleteFormulario(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do formulário inválido")
 	}
 
-	if err := db.First(&models.FormularioModelo{}, "id = ?", formularioID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Formulário não encontrado")
+	return database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&models.FormularioModelo{}, "id = ?", formularioID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Formulário não encontrado")
+			}
+			return err
 		}
-		return err
-	}
 
-	if err := db.Where("campo_formulario_id IN (?)",
-		db.Model(&models.CampoFormulario{}).
-			Select("id").
-			Where("formulario_modelo_id = ?", formularioID),
-	).Delete(&models.RespostaFormulario{}).Error; err != nil {
-		return err
-	}
+		if err := tx.Where("campo_formulario_id IN (?)",
+			tx.Model(&models.CampoFormulario{}).
+				Select("id").
+				Where("formulario_modelo_id = ?", formularioID),
+		).Delete(&models.RespostaFormulario{}).Error; err != nil {
+			return err
+		}
 
-	if err := db.Where("formulario_modelo_id = ?", formularioID).
-		Delete(&models.CampoFormulario{}).Error; err != nil {
-		return err
-	}
+		if err := tx.Where("formulario_modelo_id = ?", formularioID).
+			Delete(&models.CampoFormulario{}).Error; err != nil {
+			return err
+		}
 
-	if err := db.Where("id = ?", formularioID).
-		Delete(&models.FormularioModelo{}).Error; err != nil {
-		return err
-	}
+		if err := tx.Where("id = ?", formularioID).
+			Delete(&models.FormularioModelo{}).Error; err != nil {
+			return err
+		}
 
-	c.JSON(http.StatusOK, gin.H{"message": "Formulário e campos removidos com sucesso"})
-	return nil
+		c.JSON(http.StatusOK, gin.H{"message": "Formulário e campos removidos com sucesso"})
+		return nil
+	})
 }
 
 // ─────────────────────────────────────────────────────────────
@@ -358,15 +359,19 @@ func DeleteFormulario(c *gin.Context) error {
 // @Param id path string true "ID do Formulário"
 // @Router /api/v1/formularios/{id}/imagem [post]
 func UploadFormularioImagem(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do formulário inválido")
 	}
 
+	token := c.GetString("token")
+
+	// Valida ownership via RLS antes de processar o arquivo
 	var formulario models.FormularioModelo
-	if err := db.First(&formulario, "id = ?", formularioID).Error; err != nil {
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		return tx.First(&formulario, "id = ?", formularioID).Error
+	})
+	if err != nil {
 		if errors.Is(err, gorm.ErrRecordNotFound) {
 			return errors.New("Formulário não encontrado")
 		}
@@ -377,14 +382,14 @@ func UploadFormularioImagem(c *gin.Context) error {
 	if err != nil {
 		return errors.New("nenhuma imagem enviada")
 	}
-
 	if !utils.IsValidImage(file) {
 		return errors.New("tipo de imagem inválido")
 	}
 
+	// Remove imagem anterior (se existir)
 	if formulario.ImagemURL != "" {
 		if objectPath, pathErr := utils.ExtractObjectPath(formulario.ImagemURL, utils.SupabaseBucketFormularios); pathErr == nil {
-			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); delErr != nil {
+			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath, c.GetString("user_token")); delErr != nil {
 				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
 			}
 		}
@@ -403,19 +408,23 @@ func UploadFormularioImagem(c *gin.Context) error {
 		formularioID.String(),
 		formulario.Nome,
 		1,
+		c.GetString("user_token"),
 	)
 	if err != nil {
 		return err
 	}
 
-	formulario.ImagemURL = url
-	if err := db.Save(&formulario).Error; err != nil {
-		return err
-	}
-
-	if err := db.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
-		return tx.Order("ordem ASC")
-	}).First(&formulario, "id = ?", formularioID).Error; err != nil {
+	// Salva nova URL via RLS
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		formulario.ImagemURL = url
+		if err := tx.Save(&formulario).Error; err != nil {
+			return err
+		}
+		return tx.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("ordem ASC")
+		}).First(&formulario, "id = ?", formularioID).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -433,42 +442,49 @@ func UploadFormularioImagem(c *gin.Context) error {
 // @Param id path string true "ID do Formulário"
 // @Router /api/v1/formularios/{id}/imagem [delete]
 func DeleteFormularioImagem(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do formulário inválido")
 	}
 
-	var formulario models.FormularioModelo
-	if err := db.First(&formulario, "id = ?", formularioID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Formulário não encontrado")
+	token := c.GetString("token")
+
+	var (
+		formulario models.FormularioModelo
+		objectPath string
+	)
+	err = database.WithUserDB(token, func(tx *gorm.DB) error {
+		if err := tx.First(&formulario, "id = ?", formularioID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Formulário não encontrado")
+			}
+			return err
 		}
+		if formulario.ImagemURL == "" {
+			return errors.New("o formulário não possui imagem cadastrada")
+		}
+		if path, pathErr := utils.ExtractObjectPath(formulario.ImagemURL, utils.SupabaseBucketFormularios); pathErr == nil {
+			objectPath = path
+		} else {
+			fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
+		}
+		formulario.ImagemURL = ""
+		if err := tx.Save(&formulario).Error; err != nil {
+			return err
+		}
+		return tx.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
+			return tx.Order("ordem ASC")
+		}).First(&formulario, "id = ?", formularioID).Error
+	})
+	if err != nil {
 		return err
 	}
 
-	if formulario.ImagemURL == "" {
-		return errors.New("o formulário não possui imagem cadastrada")
-	}
-
-	if objectPath, pathErr := utils.ExtractObjectPath(formulario.ImagemURL, utils.SupabaseBucketFormularios); pathErr == nil {
-		if err := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath); err != nil {
+	// Remove do storage após commit do banco
+	if objectPath != "" {
+		if err := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath, c.GetString("user_token")); err != nil {
 			fmt.Printf("⚠️ Aviso: não foi possível deletar arquivo do storage: %s\n", err.Error())
 		}
-	} else {
-		fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
-	}
-
-	formulario.ImagemURL = ""
-	if err := db.Save(&formulario).Error; err != nil {
-		return err
-	}
-
-	if err := db.Preload("Campos", func(tx *gorm.DB) *gorm.DB {
-		return tx.Order("ordem ASC")
-	}).First(&formulario, "id = ?", formularioID).Error; err != nil {
-		return err
 	}
 
 	c.JSON(http.StatusOK, gin.H{
@@ -506,35 +522,37 @@ func CreateCampoFormulario(c *gin.Context) error {
 		return errors.New("configuracao.tipo é obrigatório")
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do formulário inválido")
 	}
 
-	if err := db.First(&models.FormularioModelo{}, "id = ?", formularioID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Formulário não encontrado")
+	var campo models.CampoFormulario
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&models.FormularioModelo{}, "id = ?", formularioID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Formulário não encontrado")
+			}
+			return err
 		}
-		return err
-	}
 
-	if req.Ordem == 0 {
-		var lastOrdem int
-		db.Model(&models.CampoFormulario{}).
-			Where("formulario_modelo_id = ?", formularioID).
-			Select("COALESCE(MAX(ordem), 0)").
-			Scan(&lastOrdem)
-		req.Ordem = lastOrdem + 1
-	}
+		if req.Ordem == 0 {
+			var lastOrdem int
+			tx.Model(&models.CampoFormulario{}).
+				Where("formulario_modelo_id = ?", formularioID).
+				Select("COALESCE(MAX(ordem), 0)").
+				Scan(&lastOrdem)
+			req.Ordem = lastOrdem + 1
+		}
 
-	campo, err := buildCampo(formularioID, req)
+		var err error
+		campo, err = buildCampo(formularioID, req)
+		if err != nil {
+			return err
+		}
+		return tx.Create(&campo).Error
+	})
 	if err != nil {
-		return err
-	}
-
-	if err := db.Create(&campo).Error; err != nil {
 		return err
 	}
 
@@ -559,8 +577,6 @@ func UpdateCampoFormulario(c *gin.Context) error {
 		return fmt.Errorf("body inválido: %w", err)
 	}
 
-	db := database.GetUserDB(c.GetString("token"))
-
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do formulário inválido")
@@ -572,28 +588,31 @@ func UpdateCampoFormulario(c *gin.Context) error {
 	}
 
 	var campo models.CampoFormulario
-	if err := db.First(&campo, "id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Campo não encontrado")
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&campo, "id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Campo não encontrado")
+			}
+			return err
 		}
-		return err
-	}
 
-	if nome := strings.TrimSpace(req.Nome); nome != "" {
-		campo.Nome = nome
-	}
-	if req.Ordem > 0 {
-		campo.Ordem = req.Ordem
-	}
-	if req.Configuracao.Tipo != "" || req.Configuracao.Label != "" {
-		configJSON, err := json.Marshal(req.Configuracao)
-		if err != nil {
-			return errors.New("erro ao serializar configuração")
+		if nome := strings.TrimSpace(req.Nome); nome != "" {
+			campo.Nome = nome
 		}
-		campo.Configuracao = configJSON
-	}
+		if req.Ordem > 0 {
+			campo.Ordem = req.Ordem
+		}
+		if req.Configuracao.Tipo != "" || req.Configuracao.Label != "" {
+			configJSON, err := json.Marshal(req.Configuracao)
+			if err != nil {
+				return errors.New("erro ao serializar configuração")
+			}
+			campo.Configuracao = configJSON
+		}
 
-	if err := db.Save(&campo).Error; err != nil {
+		return tx.Save(&campo).Error
+	})
+	if err != nil {
 		return err
 	}
 
@@ -612,8 +631,6 @@ func UpdateCampoFormulario(c *gin.Context) error {
 // @Param campoId path string true "ID do Campo"
 // @Router /api/v1/formularios/{id}/campos/{campoId} [delete]
 func DeleteCampoFormulario(c *gin.Context) error {
-	db := database.GetUserDB(c.GetString("token"))
-
 	formularioID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		return errors.New("ID do formulário inválido")
@@ -624,23 +641,24 @@ func DeleteCampoFormulario(c *gin.Context) error {
 		return errors.New("ID do campo inválido")
 	}
 
-	if err := db.First(&models.CampoFormulario{}, "id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
-		if errors.Is(err, gorm.ErrRecordNotFound) {
-			return errors.New("Campo não encontrado")
+	return database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		if err := tx.First(&models.CampoFormulario{}, "id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("Campo não encontrado")
+			}
+			return err
 		}
-		return err
-	}
 
-	if err := db.Exec("DELETE FROM resposta_formulario WHERE campo_formulario_id = ?", campoID).Error; err != nil {
-		return err
-	}
+		if err := tx.Exec("DELETE FROM resposta_formulario WHERE campo_formulario_id = ?", campoID).Error; err != nil {
+			return err
+		}
+		if err := tx.Exec("DELETE FROM campo_formulario WHERE id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
+			return err
+		}
 
-	if err := db.Exec("DELETE FROM campo_formulario WHERE id = ? AND formulario_modelo_id = ?", campoID, formularioID).Error; err != nil {
-		return err
-	}
-
-	c.JSON(http.StatusOK, gin.H{"message": "Campo removido com sucesso"})
-	return nil
+		c.JSON(http.StatusOK, gin.H{"message": "Campo removido com sucesso"})
+		return nil
+	})
 }
 
 // ─────────────────────────────────────────────────────────────

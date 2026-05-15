@@ -311,9 +311,9 @@ func TestAtualizarPet(t *testing.T) {
 				var updated models.Pet
 				assert.NoError(t, mockDB.First(&updated, "id = ?", pet.ID).Error)
 				assert.Equal(t, "Atualizado", updated.Nome)
-				assert.Equal(t, "Gato", updated.Especie)
-				assert.Equal(t, "Grande", updated.Porte)
-				assert.Equal(t, "Vitória", updated.Regiao)
+				assert.Equal(t, models.PetEspecieGato, updated.Especie)
+				assert.Equal(t, models.PetPorteGrande, updated.Porte)
+				assert.Equal(t, models.PetRegiaoVitoria, updated.Regiao)
 				assert.Equal(t, models.PetAvailable, updated.Status)
 			},
 		},
