@@ -66,19 +66,23 @@ func parseFormularioID(s *string) (*uuid.UUID, error) {
 // @Router /api/v1/pets [get]
 func ReadPets(c *gin.Context) error {
 	db := database.GetDB()
-	query := db.Model(&models.Pet{})
+	query := db.Model(&models.Pet{}).Where("status = ?", models.PetAvailable)
 
+	likeOp := "LIKE"
+	if db.Dialector.Name() == "postgres" {
+		likeOp = "ILIKE"
+	}
 	if nome := strings.TrimSpace(c.Query("nome")); nome != "" {
-		query = query.Where("nome LIKE ?", "%"+nome+"%")
+		query = query.Where("nome "+likeOp+" ?", "%"+nome+"%")
 	}
 	if especie := strings.TrimSpace(c.Query("especie")); especie != "" {
-		query = query.Where("especie LIKE ?", "%"+especie+"%")
+		query = query.Where("especie = ?", especie)
 	}
 	if porte := strings.TrimSpace(c.Query("porte")); porte != "" {
 		query = query.Where("porte = ?", porte)
 	}
 	if regiao := strings.TrimSpace(c.Query("regiao")); regiao != "" {
-		query = query.Where("regiao LIKE ?", "%"+regiao+"%")
+		query = query.Where("regiao "+likeOp+" ?", "%"+regiao+"%")
 	}
 	if ongID := strings.TrimSpace(c.Query("ong_id")); ongID != "" {
 		query = query.Where("ong_id = ?", ongID)
@@ -273,22 +277,29 @@ func UploadPetImages(c *gin.Context) error {
 		return errors.New("nenhuma imagem enviada")
 	}
 
-	// Etapa 3: verifica limite de imagens e posição atual (RLS)
+	// Etapa 3: verifica limite de imagens e posição atual (RLS) — uma única query
 	var (
 		lastPosition int
 		totalAtual   int64
 	)
 	err = database.WithUserDB(token, func(tx *gorm.DB) error {
-		if err := tx.Model(&models.PetImage{}).Where("pet_id = ?", petID).Count(&totalAtual).Error; err != nil {
+		type countMax struct {
+			Total       int64
+			MaxPosition int
+		}
+		var cm countMax
+		if err := tx.Model(&models.PetImage{}).
+			Where("pet_id = ?", petID).
+			Select("COUNT(*) AS total, COALESCE(MAX(position), 0) AS max_position").
+			Scan(&cm).Error; err != nil {
 			return err
 		}
+		totalAtual = cm.Total
+		lastPosition = cm.MaxPosition
 		if totalAtual+int64(len(files)) > 5 {
 			return errors.New("o pet pode ter no máximo 5 imagens")
 		}
-		return tx.Model(&models.PetImage{}).
-			Where("pet_id = ?", petID).
-			Select("COALESCE(MAX(position), 0)").
-			Scan(&lastPosition).Error
+		return nil
 	})
 	if err != nil {
 		return err
@@ -327,13 +338,14 @@ func UploadPetImages(c *gin.Context) error {
 		uploads = append(uploads, uploadedImage{url: url, position: position})
 	}
 
-	// Etapa 3: salva registros de imagem e recarrega pet (RLS)
+	// Etapa 3: salva registros de imagem em batch e recarrega pet (RLS)
 	err = database.WithUserDB(token, func(tx *gorm.DB) error {
-		for _, u := range uploads {
-			image := models.PetImage{URL: u.url, PetID: petID, Position: u.position}
-			if err := tx.Create(&image).Error; err != nil {
-				return err
-			}
+		images := make([]models.PetImage, len(uploads))
+		for i, u := range uploads {
+			images[i] = models.PetImage{URL: u.url, PetID: petID, Position: u.position}
+		}
+		if err := tx.CreateInBatches(images, 10).Error; err != nil {
+			return err
 		}
 		return tx.Preload("Imagens", func(tx *gorm.DB) *gorm.DB {
 			return tx.Order("position ASC")

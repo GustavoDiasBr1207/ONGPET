@@ -69,6 +69,7 @@ func runAcompanhamentoReminders() error {
 	var acompanhamentos []models.Acompanhamento
 	if err := db.
 		Preload("Pet").
+		Preload("Ong").
 		Where("status = ? AND lembrete_enviado = ? AND proxima_data <= ?",
 			models.AcompanhamentoAtivo, false, endOfTomorrow).
 		Find(&acompanhamentos).Error; err != nil {
@@ -85,9 +86,9 @@ func runAcompanhamentoReminders() error {
 	for _, a := range acompanhamentos {
 		a := a // captura para goroutine
 
-		var ong models.Ong
-		if err := db.First(&ong, "id = ?", a.OngID).Error; err != nil {
-			log.Printf("⚠️ ONG não encontrada para acompanhamento %s: %v\n", a.ID, err)
+		ong := a.Ong
+		if ong.ID == uuid.Nil {
+			log.Printf("⚠️ ONG não encontrada para acompanhamento %s\n", a.ID)
 			continue
 		}
 

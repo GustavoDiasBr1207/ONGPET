@@ -526,8 +526,6 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 		}
 		return tx.
 			Preload("Respostas.CampoFormulario").
-			Preload("Pet").
-			Preload("Ong").
 			First(&pedido, "id = ?", pedidoID).Error
 	})
 	if err != nil {
@@ -537,14 +535,30 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 	// 📧 Enviar email e 💬 WhatsApp para o solicitante quando status mudar para aprovado ou rejeitado
 	if (req.Status == models.PedidoAdocaoAprovado || req.Status == models.PedidoAdocaoRejeitado) &&
 		oldStatus == models.PedidoAdocaoPendente {
+		pedidoID := pedidoID // captura para goroutine
+		respostas := pedido.Respostas
+		newStatus := req.Status
 		go func() {
+			// Carrega Pet e ONG fora da transação principal
+			db := database.GetDB()
+			var pet models.Pet
+			var ong models.Ong
+			if err := db.First(&pet, "id = ?", pedido.PetID).Error; err != nil {
+				fmt.Printf("⚠️ Erro ao carregar pet para notificação (pedido: %s): %v\n", pedidoID, err)
+				return
+			}
+			if err := db.First(&ong, "id = ?", pedido.OngID).Error; err != nil {
+				fmt.Printf("⚠️ Erro ao carregar ong para notificação (pedido: %s): %v\n", pedidoID, err)
+				return
+			}
+
 			// Extrai email, nome e telefone do solicitante das respostas
 			// usando o Label da configuração (texto legível) em vez do Nome interno do campo
 			var solicitantEmail string
 			var solicitanteName string
 			var solicitantePhone string
 
-			for _, resposta := range pedido.Respostas {
+			for _, resposta := range respostas {
 				var cfg models.CampoConfiguracao
 				if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
 					continue
@@ -565,18 +579,18 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 			} else {
 				var subject, body string
 
-				if req.Status == models.PedidoAdocaoAprovado {
+				if newStatus == models.PedidoAdocaoAprovado {
 					subject, body = utils.NewAdoptionApprovedEmail(
 						solicitanteName,
-						pedido.Pet.Nome,
-						pedido.Ong.Nome,
-						pedido.Ong.Telefone,
+						pet.Nome,
+						ong.Nome,
+						ong.Telefone,
 					)
 				} else {
 					subject, body = utils.NewAdoptionRejectedEmail(
 						solicitanteName,
-						pedido.Pet.Nome,
-						pedido.Ong.Nome,
+						pet.Nome,
+						ong.Nome,
 						"Infelizmente sua solicitação de adoção foi rejeitada.",
 					)
 				}
@@ -589,7 +603,7 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 						fmt.Println("⚠️ Erro ao enviar email para solicitante:", err)
 					} else {
 						statusMsg := "aprovado"
-						if req.Status == models.PedidoAdocaoRejeitado {
+						if newStatus == models.PedidoAdocaoRejeitado {
 							statusMsg = "rejeitado"
 						}
 						fmt.Printf("✅ Email de %s enviado para: %s\n", statusMsg, solicitantEmail)
@@ -601,20 +615,20 @@ func UpdateStatusPedidoAdocao(c *gin.Context) error {
 			if solicitantePhone == "" {
 				fmt.Println("⚠️ Telefone do solicitante não encontrado nas respostas, WhatsApp não enviado")
 			} else {
-				if req.Status == models.PedidoAdocaoAprovado {
+				if newStatus == models.PedidoAdocaoAprovado {
 					utils.SendWhatsAppAdoptionApproved(
 						solicitantePhone,
 						solicitanteName,
-						pedido.Pet.Nome,
-						pedido.Ong.Nome,
-						pedido.Ong.Telefone,
+						pet.Nome,
+						ong.Nome,
+						ong.Telefone,
 					)
-				} else if req.Status == models.PedidoAdocaoRejeitado {
+				} else if newStatus == models.PedidoAdocaoRejeitado {
 					utils.SendWhatsAppAdoptionRejected(
 						solicitantePhone,
 						solicitanteName,
-						pedido.Pet.Nome,
-						pedido.Ong.Nome,
+						pet.Nome,
+						ong.Nome,
 					)
 				}
 			}

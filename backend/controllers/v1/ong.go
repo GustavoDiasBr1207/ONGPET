@@ -52,11 +52,15 @@ func ReadOngs(c *gin.Context) error {
 	db := database.GetDB()
 	query := db.Model(&models.Ong{})
 
+	likeOp := "LIKE"
+	if db.Dialector.Name() == "postgres" {
+		likeOp = "ILIKE"
+	}
 	if nome := strings.TrimSpace(c.Query("nome")); nome != "" {
-		query = query.Where("nome LIKE ?", "%"+nome+"%")
+		query = query.Where("nome "+likeOp+" ?", "%"+nome+"%")
 	}
 	if email := strings.TrimSpace(c.Query("email")); email != "" {
-		query = query.Where("email LIKE ?", "%"+email+"%")
+		query = query.Where("email "+likeOp+" ?", "%"+email+"%")
 	}
 
 	pageStr  := c.DefaultQuery("page",  "1")

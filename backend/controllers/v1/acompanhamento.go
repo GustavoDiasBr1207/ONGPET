@@ -2,7 +2,9 @@ package v1
 
 import (
 	"errors"
+	"math"
 	"net/http"
+	"strconv"
 	"time"
 
 	"ongpet/database"
@@ -80,20 +82,60 @@ func CreateAcompanhamento(c *gin.Context) error {
 	return nil
 }
 
+type AcompanhamentoListResponse struct {
+	Dados          []models.AcompanhamentoDTO `json:"dados"`
+	TotalRegistros int64                      `json:"total_registros"`
+	TotalPaginas   int                        `json:"total_paginas"`
+	ProximaPagina  bool                       `json:"proxima_pagina"`
+}
+
 // @Summary Lista todos os acompanhamentos da ONG
 // @Tags Acompanhamento
 // @Produce json
-// @Success 200 {array} models.AcompanhamentoDTO
+// @Param page  query int false "Página (default: 1)"
+// @Param limit query int false "Itens por página (default: 20)"
+// @Success 200 {object} v1.AcompanhamentoListResponse
 // @Security ApiKeyAuth
 // @Router /api/v1/acompanhamentos [get]
 func ListAcompanhamentos(c *gin.Context) error {
-	var dtos []models.AcompanhamentoDTO
+	pageStr  := c.DefaultQuery("page",  "1")
+	limitStr := c.DefaultQuery("limit", "20")
 
-	err := database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+	page, err := strconv.Atoi(pageStr)
+	if err != nil || page <= 0 {
+		return errors.New("page inválido")
+	}
+	limit, err := strconv.Atoi(limitStr)
+	if err != nil || limit <= 0 {
+		return errors.New("limit inválido")
+	}
+	if limit > 100 {
+		limit = 100
+	}
+
+	var (
+		total int64
+		dtos  []models.AcompanhamentoDTO
+	)
+
+	err = database.WithUserDB(c.GetString("token"), func(tx *gorm.DB) error {
+		base := tx.Model(&models.Acompanhamento{})
+
+		if err := base.Count(&total).Error; err != nil {
+			return err
+		}
+
+		offset := (page - 1) * limit
 		var acompanhamentos []models.Acompanhamento
-		if err := tx.Preload("Pet").Preload("Logs", func(db *gorm.DB) *gorm.DB {
-			return db.Order("data_contato DESC")
-		}).Order("proxima_data ASC").Find(&acompanhamentos).Error; err != nil {
+		if err := tx.
+			Preload("Pet").
+			Preload("Logs", func(db *gorm.DB) *gorm.DB {
+				return db.Order("data_contato DESC")
+			}).
+			Order("proxima_data ASC").
+			Offset(offset).
+			Limit(limit).
+			Find(&acompanhamentos).Error; err != nil {
 			return err
 		}
 
@@ -108,7 +150,14 @@ func ListAcompanhamentos(c *gin.Context) error {
 		return err
 	}
 
-	c.JSON(http.StatusOK, dtos)
+	totalPages := int(math.Ceil(float64(total) / float64(limit)))
+
+	c.JSON(http.StatusOK, AcompanhamentoListResponse{
+		Dados:          dtos,
+		TotalRegistros: total,
+		TotalPaginas:   totalPages,
+		ProximaPagina:  int64(page*limit) < total,
+	})
 	return nil
 }
 
