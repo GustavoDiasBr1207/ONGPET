@@ -1,5 +1,12 @@
 package utils
 
+import (
+	"os"
+	"testing"
+
+	"github.com/joho/godotenv"
+)
+
 // EmailTestData contém dados para testar envio de email
 type EmailTestData struct {
 	To       string
@@ -7,44 +14,70 @@ type EmailTestData struct {
 	Data     map[string]string
 }
 
-// SendTestEmail envia um email de teste
+// SendTestEmail envia um email de teste usando um template
 func SendTestEmail(testData EmailTestData) error {
 	mailer := GetMailer()
 	if mailer == nil {
-		return nil // Falha silenciosa se mailer não estiver disponível
+		return nil
 	}
 
 	switch testData.Template {
 	case "pet_registered":
-		petName := testData.Data["pet_name"]
-		ownerName := testData.Data["owner_name"]
-		subject, body := NewPetRegisteredEmail(petName, ownerName)
+		subject, body := NewPetRegisteredEmail(testData.Data["pet_name"], testData.Data["owner_name"])
 		return mailer.Send([]string{testData.To}, subject, body)
-
 	case "adoption_request":
-		petName := testData.Data["pet_name"]
-		requesterName := testData.Data["requester_name"]
-		ongName := testData.Data["ong_name"]
-		subject, body := NewAdoptionRequestEmail(petName, requesterName, ongName)
+		subject, body := NewAdoptionRequestEmail(testData.Data["pet_name"], testData.Data["requester_name"], testData.Data["ong_name"])
 		return mailer.Send([]string{testData.To}, subject, body)
-
 	case "adoption_confirmed":
-		petName := testData.Data["pet_name"]
-		requesterName := testData.Data["requester_name"]
-		subject, body := NewAdoptionConfirmedEmail(petName, requesterName)
+		subject, body := NewAdoptionConfirmedEmail(testData.Data["pet_name"], testData.Data["requester_name"])
 		return mailer.Send([]string{testData.To}, subject, body)
-
 	case "contact":
-		name := testData.Data["name"]
-		email := testData.Data["email"]
-		message := testData.Data["message"]
-		subject, body := NewContactEmail(name, email, message)
+		subject, body := NewContactEmail(testData.Data["name"], testData.Data["email"], testData.Data["message"])
 		return mailer.Send([]string{testData.To}, subject, body)
-
 	default:
-		// Envio genérico
-		subject := testData.Data["subject"]
-		body := testData.Data["body"]
-		return mailer.Send([]string{testData.To}, subject, body)
+		return mailer.Send([]string{testData.To}, testData.Data["subject"], testData.Data["body"])
 	}
+}
+
+// TestMailerInit verifica se o mailer inicializa corretamente com as variáveis de ambiente.
+func TestMailerInit(t *testing.T) {
+	_ = godotenv.Load("../.env")
+
+	if err := InitMailer(); err != nil {
+		t.Fatalf("falha ao inicializar mailer: %v", err)
+	}
+
+	if GetMailer() == nil {
+		t.Fatal("GetMailer() retornou nil após inicialização bem-sucedida")
+	}
+
+	t.Log("✅ Mailer inicializado com sucesso")
+}
+
+// TestSendRealEmail envia um email de verdade para verificar o fluxo completo.
+// Para executar: TEST_EMAIL_TO=seu@email.com go test ./utils/... -run TestSendRealEmail -v
+// O teste é pulado automaticamente se TEST_EMAIL_TO não estiver definido.
+func TestSendRealEmail(t *testing.T) {
+	_ = godotenv.Load("../.env")
+
+	to := os.Getenv("TEST_EMAIL_TO")
+	if to == "" {
+		t.Skip("TEST_EMAIL_TO não definido — defina a variável para executar o envio real")
+	}
+
+	if err := InitMailer(); err != nil {
+		t.Fatalf("falha ao inicializar mailer: %v", err)
+	}
+
+	m := GetMailer()
+	if m == nil {
+		t.Fatal("mailer é nil após inicialização")
+	}
+
+	subject, body := NewPetRegisteredEmail("Rex (teste)", "Equipe OngPet")
+	if err := m.Send([]string{to}, subject, body); err != nil {
+		t.Fatalf("❌ falha ao enviar email: %v", err)
+	}
+
+	t.Logf("✅ Email enviado com sucesso para: %s", to)
 }

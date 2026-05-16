@@ -250,80 +250,83 @@ func CreatePedidoAdocao(c *gin.Context) error {
 	// 📧 Enviar email e 💬 WhatsApp para a ONG sobre nova solicitação de adoção
 	go func() {
 		var ong models.Ong
-		if err := db.First(&ong, "id = ?", req.OngID).Error; err == nil {
-			requesterName := "Novo solicitante"
-			var solicitantePhone string
+		if err := db.First(&ong, "id = ?", req.OngID).Error; err != nil {
+			fmt.Printf("⚠️ Erro ao carregar ONG para notificação (pedido: %s): %v\n", pedido.ID, err)
+			return
+		}
 
-			// Tenta buscar o nome e telefone do solicitante nas respostas do formulário
-			// usando o Label da configuração (texto legível) em vez do Nome interno do campo
-			for _, resposta := range pedido.Respostas {
-				var cfg models.CampoConfiguracao
-				if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
-					continue
-				}
-				switch strings.ToLower(cfg.Label) {
-				case "nome":
-					requesterName = resposta.Valor
-				case "telefone":
-					solicitantePhone = resposta.Valor
-				}
+		requesterName := "Novo solicitante"
+		var solicitantePhone string
+
+		// Tenta buscar o nome e telefone do solicitante nas respostas do formulário
+		// usando o Label da configuração (texto legível) em vez do Nome interno do campo
+		for _, resposta := range pedido.Respostas {
+			var cfg models.CampoConfiguracao
+			if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err != nil {
+				continue
 			}
-
-			// Monta mapa de respostas do formulário para o email
-			// usando o Label da configuração como chave (em vez do Nome interno, que pode ser UUID)
-			respostasMap := make(map[string]string)
-			for _, resposta := range pedido.Respostas {
-				var cfg models.CampoConfiguracao
-				if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err == nil && cfg.Label != "" {
-					respostasMap[cfg.Label] = resposta.Valor
-				} else {
-					// fallback: usa o Nome interno caso o unmarshal falhe
-					respostasMap[resposta.CampoFormulario.Nome] = resposta.Valor
-				}
+			switch strings.ToLower(cfg.Label) {
+			case "nome":
+				requesterName = resposta.Valor
+			case "telefone":
+				solicitantePhone = resposta.Valor
 			}
+		}
 
-			// Cria os dados completos para o email
-			emailData := utils.AdoptionRequestFullData{
-				PetNome:             pet.Nome,
-				PetEspecie:          string(pet.Especie),
-				PetRaca:             pet.Raca,
-				PetIdade:            pet.Idade,
-				PetDescricao:        pet.Descricao,
-				PetPeso:             pet.Peso,
-				PetPorte:            string(pet.Porte),
-				PetRegiao:           string(pet.Regiao),
-				OngNome:             ong.Nome,
-				SolicitanteName:     requesterName,
-				RespostasFormulario: respostasMap,
-			}
-
-			// Gera o email com todas as informações
-			subject, body := utils.NewAdoptionRequestFullEmail(emailData)
-
-			// Envia para o email da ONG
-			mailer := utils.GetMailer()
-			if mailer != nil {
-				err := mailer.Send([]string{ong.Email}, subject, body)
-				if err != nil {
-					fmt.Println("⚠️ Erro ao enviar email para ONG:", err)
-				} else {
-					fmt.Println("✅ Email enviado para ONG:", ong.Email)
-				}
-			}
-
-			// 💬 Enviar WhatsApp para ONG sobre novo pedido (assíncrono)
-			if ong.Telefone != "" {
-				utils.SendWhatsAppAdoptionRequest(ong.Telefone, pet.Nome, requesterName, ong.Nome)
+		// Monta mapa de respostas do formulário para o email
+		// usando o Label da configuração como chave (em vez do Nome interno, que pode ser UUID)
+		respostasMap := make(map[string]string)
+		for _, resposta := range pedido.Respostas {
+			var cfg models.CampoConfiguracao
+			if err := json.Unmarshal(resposta.CampoFormulario.Configuracao, &cfg); err == nil && cfg.Label != "" {
+				respostasMap[cfg.Label] = resposta.Valor
 			} else {
-				fmt.Println("⚠️ Telefone da ONG não configurado, WhatsApp não enviado")
+				// fallback: usa o Nome interno caso o unmarshal falhe
+				respostasMap[resposta.CampoFormulario.Nome] = resposta.Valor
 			}
+		}
 
-			// 💬 Enviar confirmação WhatsApp para solicitante (assíncrono)
-			if solicitantePhone != "" {
-				utils.SendWhatsAppAdoptionConfirmation(solicitantePhone, requesterName, pet.Nome, ong.Nome)
+		// Cria os dados completos para o email
+		emailData := utils.AdoptionRequestFullData{
+			PetNome:             pet.Nome,
+			PetEspecie:          string(pet.Especie),
+			PetRaca:             pet.Raca,
+			PetIdade:            pet.Idade,
+			PetDescricao:        pet.Descricao,
+			PetPeso:             pet.Peso,
+			PetPorte:            string(pet.Porte),
+			PetRegiao:           string(pet.Regiao),
+			OngNome:             ong.Nome,
+			SolicitanteName:     requesterName,
+			RespostasFormulario: respostasMap,
+		}
+
+		// Gera o email com todas as informações
+		subject, body := utils.NewAdoptionRequestFullEmail(emailData)
+
+		// Envia para o email da ONG
+		mailer := utils.GetMailer()
+		if mailer != nil {
+			err := mailer.Send([]string{ong.Email}, subject, body)
+			if err != nil {
+				fmt.Println("⚠️ Erro ao enviar email para ONG:", err)
 			} else {
-				fmt.Println("⚠️ Telefone do solicitante não encontrado nas respostas, confirmação WhatsApp não enviada")
+				fmt.Println("✅ Email enviado para ONG:", ong.Email)
 			}
+		}
+
+		// 💬 Enviar WhatsApp para ONG sobre novo pedido (assíncrono)
+		if ong.Telefone != "" {
+			utils.SendWhatsAppAdoptionRequest(ong.Telefone, pet.Nome, requesterName, ong.Nome)
+		} else {
+			fmt.Println("⚠️ Telefone da ONG não configurado, WhatsApp não enviado")
+		}
+
+		// 💬 Enviar confirmação WhatsApp para solicitante (assíncrono)
+		if solicitantePhone != "" {
+			utils.SendWhatsAppAdoptionConfirmation(solicitantePhone, requesterName, pet.Nome, ong.Nome)
+		} else {
+			fmt.Println("⚠️ Telefone do solicitante não encontrado nas respostas, confirmação WhatsApp não enviada")
 		}
 	}()
 
