@@ -2,6 +2,7 @@ package controllers
 
 import (
 	"net/http"
+	"os"
 	"time"
 
 	v1 "ongpet/controllers/v1"
@@ -41,8 +42,10 @@ func SetupRoutes() *gin.Engine {
 
 	r.Use(cors.New(config))
 
-	// Swagger
-	r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	// Swagger (habilitado via SWAGGER_ENABLED=true)
+	if os.Getenv("SWAGGER_ENABLED") == "true" {
+		r.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerFiles.Handler))
+	}
 
 	// Health check
 	r.GET("/health", func(c *gin.Context) {

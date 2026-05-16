@@ -159,13 +159,19 @@ func TestReadBanner(t *testing.T) {
 func TestCreateBanner(t *testing.T) {
 	mockData()
 
+	validDates := map[string]any{
+		"start_at": time.Now().Add(-time.Hour).Format(time.RFC3339),
+		"end_at":   time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+	}
+
 	sucessoBody := map[string]any{
 		"title":         "Banner Novo",
 		"instagram_url": "https://instagram.com/ongpet",
-		"start_at":      time.Now().Add(-time.Hour).Format(time.RFC3339),
-		"end_at":        time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+		"start_at":      validDates["start_at"],
+		"end_at":        validDates["end_at"],
 		"active":        true,
 		"position":      1,
+		"ong_id":        testOng.ID,
 	}
 
 	testCases := []TestCase{
@@ -190,8 +196,9 @@ func TestCreateBanner(t *testing.T) {
 			Method:      http.MethodPost,
 			Body: mustMarshal(t, map[string]any{
 				"instagram_url": "https://instagram.com/ongpet",
-				"start_at":      time.Now().Format(time.RFC3339),
-				"end_at":        time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+				"start_at":      validDates["start_at"],
+				"end_at":        validDates["end_at"],
+				"ong_id":        testOng.ID,
 			}),
 			ExpectedStatus:   http.StatusBadRequest,
 			ExpectedErrorMsg: "title é obrigatório",
@@ -201,9 +208,10 @@ func TestCreateBanner(t *testing.T) {
 			URL:         "/api/v1/banners",
 			Method:      http.MethodPost,
 			Body: mustMarshal(t, map[string]any{
-				"title":    "Banner X",
-				"start_at": time.Now().Format(time.RFC3339),
-				"end_at":   time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+				"title":   "Banner X",
+				"start_at": validDates["start_at"],
+				"end_at":  validDates["end_at"],
+				"ong_id":  testOng.ID,
 			}),
 			ExpectedStatus:   http.StatusBadRequest,
 			ExpectedErrorMsg: "instagram_url é obrigatório",
@@ -215,7 +223,8 @@ func TestCreateBanner(t *testing.T) {
 			Body: mustMarshal(t, map[string]any{
 				"title":         "Banner X",
 				"instagram_url": "https://instagram.com/ongpet",
-				"end_at":        time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+				"end_at":        validDates["end_at"],
+				"ong_id":        testOng.ID,
 			}),
 			ExpectedStatus:   http.StatusBadRequest,
 			ExpectedErrorMsg: "start_at é obrigatório",
@@ -227,10 +236,24 @@ func TestCreateBanner(t *testing.T) {
 			Body: mustMarshal(t, map[string]any{
 				"title":         "Banner X",
 				"instagram_url": "https://instagram.com/ongpet",
-				"start_at":      time.Now().Format(time.RFC3339),
+				"start_at":      validDates["start_at"],
+				"ong_id":        testOng.ID,
 			}),
 			ExpectedStatus:   http.StatusBadRequest,
 			ExpectedErrorMsg: "end_at é obrigatório",
+		},
+		{
+			Description: "Erro - ong_id ausente",
+			URL:         "/api/v1/banners",
+			Method:      http.MethodPost,
+			Body: mustMarshal(t, map[string]any{
+				"title":         "Banner X",
+				"instagram_url": "https://instagram.com/ongpet",
+				"start_at":      validDates["start_at"],
+				"end_at":        validDates["end_at"],
+			}),
+			ExpectedStatus:   http.StatusBadRequest,
+			ExpectedErrorMsg: "ong_id é obrigatório",
 		},
 		{
 			Description: "Erro - start_at formato inválido",
@@ -240,7 +263,8 @@ func TestCreateBanner(t *testing.T) {
 				"title":         "Banner X",
 				"instagram_url": "https://instagram.com/ongpet",
 				"start_at":      "01/01/2026",
-				"end_at":        time.Now().Add(30 * 24 * time.Hour).Format(time.RFC3339),
+				"end_at":        validDates["end_at"],
+				"ong_id":        testOng.ID,
 			}),
 			ExpectedStatus:   http.StatusBadRequest,
 			ExpectedErrorMsg: "start_at deve estar no formato RFC3339",
@@ -252,8 +276,9 @@ func TestCreateBanner(t *testing.T) {
 			Body: mustMarshal(t, map[string]any{
 				"title":         "Banner X",
 				"instagram_url": "https://instagram.com/ongpet",
-				"start_at":      time.Now().Format(time.RFC3339),
+				"start_at":      validDates["start_at"],
 				"end_at":        "01/01/2026",
+				"ong_id":        testOng.ID,
 			}),
 			ExpectedStatus:   http.StatusBadRequest,
 			ExpectedErrorMsg: "end_at deve estar no formato RFC3339",
