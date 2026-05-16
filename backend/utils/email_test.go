@@ -55,14 +55,16 @@ func TestMailerInit(t *testing.T) {
 }
 
 // TestSendRealEmail envia um email de verdade para verificar o fluxo completo.
-// Para executar: TEST_EMAIL_TO=seu@email.com go test ./utils/... -run TestSendRealEmail -v
-// O teste é pulado automaticamente se TEST_EMAIL_TO não estiver definido.
+// Usa TEST_EMAIL_TO se definido, caso contrário usa SMTP_FROM do .env.
 func TestSendRealEmail(t *testing.T) {
 	_ = godotenv.Load("../.env")
 
 	to := os.Getenv("TEST_EMAIL_TO")
 	if to == "" {
-		t.Skip("TEST_EMAIL_TO não definido — defina a variável para executar o envio real")
+		to = os.Getenv("SMTP_FROM")
+	}
+	if to == "" {
+		t.Skip("SMTP_FROM e TEST_EMAIL_TO não definidos — configure o .env para executar")
 	}
 
 	if err := InitMailer(); err != nil {
