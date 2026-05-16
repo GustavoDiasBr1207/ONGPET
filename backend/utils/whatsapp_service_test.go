@@ -1,8 +1,11 @@
 package utils
 
 import (
+	"os"
 	"strings"
 	"testing"
+
+	"github.com/joho/godotenv"
 )
 
 // TestValidatePhoneNumber testa validação de números de telefone
@@ -12,36 +15,12 @@ func TestValidatePhoneNumber(t *testing.T) {
 		wantErr bool
 		name    string
 	}{
-		{
-			phone:   "5527992345678",
-			wantErr: false,
-			name:    "Número válido Brasil (11 dígitos)",
-		},
-		{
-			phone:   "55 27 99234-5678",
-			wantErr: false,
-			name:    "Número válido com formatação",
-		},
-		{
-			phone:   "27992345678",
-			wantErr: false,
-			name:    "Número sem código de país (11 dígitos)",
-		},
-		{
-			phone:   "123",
-			wantErr: true,
-			name:    "Número muito curto",
-		},
-		{
-			phone:   "",
-			wantErr: true,
-			name:    "Telefone vazio",
-		},
-		{
-			phone:   "+55 27 99234-5678",
-			wantErr: false,
-			name:    "Número com + e formatação",
-		},
+		{"5527992345678", false, "Número válido Brasil (13 dígitos)"},
+		{"55 27 99234-5678", false, "Número válido com formatação"},
+		{"27992345678", false, "Número sem código de país (11 dígitos)"},
+		{"123", true, "Número muito curto"},
+		{"", true, "Telefone vazio"},
+		{"+55 27 99234-5678", false, "Número com + e formatação"},
 	}
 
 	for _, tt := range tests {
@@ -54,6 +33,34 @@ func TestValidatePhoneNumber(t *testing.T) {
 	}
 }
 
+// TestNormalizePhoneNumber testa normalização de números para o padrão 55XXXXXXXXXX
+func TestNormalizePhoneNumber(t *testing.T) {
+	tests := []struct {
+		input   string
+		want    string
+		wantErr bool
+		name    string
+	}{
+		{"5527992345678", "5527992345678", false, "Número já normalizado"},
+		{"27992345678", "5527992345678", false, "Adiciona 55 automaticamente"},
+		{"(27) 99234-5678", "5527992345678", false, "Remove formatação e adiciona 55"},
+		{"+55 27 99234-5678", "5527992345678", false, "Remove + e espaços"},
+		{"123", "", true, "Muito curto — deve falhar"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := normalizePhoneNumber(tt.input)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("normalizePhoneNumber(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("normalizePhoneNumber(%q) = %q, want %q", tt.input, got, tt.want)
+			}
+		})
+	}
+}
+
 // TestMaskPhoneNumber testa mascaramento de número para logging
 func TestMaskPhoneNumber(t *testing.T) {
 	tests := []struct {
@@ -61,21 +68,9 @@ func TestMaskPhoneNumber(t *testing.T) {
 		expected string
 		name     string
 	}{
-		{
-			phone:    "5527992345678",
-			expected: "****5678",
-			name:     "Máscara telefone completo",
-		},
-		{
-			phone:    "1234",
-			expected: "****",
-			name:     "Telefone muito curto",
-		},
-		{
-			phone:    "",
-			expected: "****",
-			name:     "Telefone vazio",
-		},
+		{"5527992345678", "****5678", "Máscara telefone completo"},
+		{"1234", "****", "Telefone muito curto"},
+		{"", "****", "Telefone vazio"},
 	}
 
 	for _, tt := range tests {
@@ -88,74 +83,116 @@ func TestMaskPhoneNumber(t *testing.T) {
 	}
 }
 
-// TestNewAdoptionMessages testa criação de mensagens
+// TestNewAdoptionMessages testa criação de mensagens WhatsApp
 func TestNewAdoptionMessages(t *testing.T) {
 	t.Run("NewAdoptionRequestWhatsAppMessage", func(t *testing.T) {
 		msg := NewAdoptionRequestWhatsAppMessage("Rex", "João", "ONG Amigos")
 		if !strings.Contains(msg, "Rex") {
-			t.Errorf("Mensagem não contém nome do pet")
+			t.Error("mensagem não contém nome do pet")
 		}
 		if !strings.Contains(msg, "João") {
-			t.Errorf("Mensagem não contém nome do solicitante")
+			t.Error("mensagem não contém nome do solicitante")
 		}
 		if !strings.Contains(msg, "ONG Amigos") {
-			t.Errorf("Mensagem não contém nome da ONG")
+			t.Error("mensagem não contém nome da ONG")
 		}
 	})
 
 	t.Run("NewAdoptionApprovedWhatsAppMessage", func(t *testing.T) {
 		msg := NewAdoptionApprovedWhatsAppMessage("Maria", "Mimi", "ONG Cat", "5527992345678")
 		if !strings.Contains(msg, "APROVADA") {
-			t.Errorf("Mensagem de aprovação não contém 'APROVADA'")
+			t.Error("mensagem de aprovação não contém 'APROVADA'")
 		}
 		if !strings.Contains(msg, "5527992345678") {
-			t.Errorf("Mensagem não contém telefone da ONG")
+			t.Error("mensagem não contém telefone da ONG")
 		}
 	})
 
 	t.Run("NewAdoptionRejectedWhatsAppMessage", func(t *testing.T) {
 		msg := NewAdoptionRejectedWhatsAppMessage("Pedro", "Buddy", "ONG Dogs")
 		if !strings.Contains(msg, "não aprovada") {
-			t.Errorf("Mensagem de rejeição não contém 'não aprovada'")
+			t.Error("mensagem de rejeição não contém 'não aprovada'")
+		}
+	})
+
+	t.Run("NewAdoptionConfirmationWhatsAppMessage", func(t *testing.T) {
+		msg := NewAdoptionConfirmationWhatsAppMessage("Ana", "Thor", "ONG Pets")
+		if !strings.Contains(msg, "Ana") {
+			t.Error("mensagem de confirmação não contém nome do solicitante")
+		}
+		if !strings.Contains(msg, "Thor") {
+			t.Error("mensagem de confirmação não contém nome do pet")
 		}
 	})
 }
 
-// BenchmarkSendMessage benchmark do envio de mensagem
-// Execute com: go test -bench=. ./utils
+// TestWhatsAppServiceInit verifica se o serviço inicializa corretamente
+func TestWhatsAppServiceInit(t *testing.T) {
+	_ = godotenv.Load("../.env")
+
+	if err := InitWhatsAppService(); err != nil {
+		t.Fatalf("falha ao inicializar WhatsApp service: %v", err)
+	}
+
+	svc := GetWhatsAppService()
+	if svc == nil {
+		t.Fatal("GetWhatsAppService() retornou nil após inicialização")
+	}
+
+	if svc.enabled {
+		t.Logf("✅ WhatsApp service inicializado e habilitado (sender: %s)", svc.SenderNumber)
+		if svc.apiURL == "" {
+			t.Error("WHATSAPP_API_URL está vazio com serviço habilitado")
+		}
+		if svc.apiKey == "" {
+			t.Error("WHATSAPP_API_KEY está vazio com serviço habilitado")
+		}
+		if svc.SenderNumber == "" {
+			t.Error("WHATSAPP_SENDER_NUMBER está vazio com serviço habilitado")
+		}
+	} else {
+		t.Log("ℹ️ WhatsApp service inicializado mas desabilitado (WHATSAPP_ENABLED != true)")
+	}
+}
+
+// TestSendRealWhatsApp envia uma mensagem real para verificar o fluxo completo.
+// Usa TEST_WHATSAPP_NUMBER se definido, caso contrário usa WHATSAPP_SENDER_NUMBER do .env.
+func TestSendRealWhatsApp(t *testing.T) {
+	_ = godotenv.Load("../.env")
+
+	to := os.Getenv("TEST_WHATSAPP_NUMBER")
+	if to == "" {
+		to = os.Getenv("WHATSAPP_SENDER_NUMBER")
+	}
+	if to == "" {
+		t.Skip("WHATSAPP_SENDER_NUMBER e TEST_WHATSAPP_NUMBER não definidos — configure o .env para executar")
+	}
+
+	if err := InitWhatsAppService(); err != nil {
+		t.Fatalf("falha ao inicializar WhatsApp service: %v", err)
+	}
+
+	svc := GetWhatsAppService()
+	if svc == nil {
+		t.Fatal("WhatsApp service é nil após inicialização")
+	}
+
+	if !svc.enabled {
+		t.Skip("WhatsApp desabilitado — verifique WHATSAPP_ENABLED=true no .env")
+	}
+
+	msg := NewAdoptionConfirmationWhatsAppMessage("Equipe OngPet", "Rex (teste)", "ONG Teste")
+	if err := svc.SendMessageWithRetry(to, msg); err != nil {
+		t.Fatalf("❌ falha ao enviar WhatsApp: %v", err)
+	}
+
+	t.Logf("✅ WhatsApp enviado com sucesso para: %s", maskPhoneNumber(to))
+}
+
+// BenchmarkPhoneValidation benchmark de validação de telefone
 func BenchmarkPhoneValidation(b *testing.B) {
 	phone := "5527992345678"
 	for i := 0; i < b.N; i++ {
 		_ = ValidatePhoneNumber(phone)
 	}
 }
-
-// Exemplo de teste de integração (comentado, para uso manual)
-/*
-func TestWhatsAppServiceIntegration(t *testing.T) {
-	if testing.Short() {
-		t.Skip("Skipping integration test")
-	}
-
-	svc, err := NewWhatsAppService()
-	if err != nil {
-		t.Fatalf("Falha ao criar WhatsApp service: %v", err)
-	}
-
-	if !svc.enabled {
-		t.Skip("WhatsApp desabilitado")
-	}
-
-	// Teste com número de sandbox ou teste
-	// IMPORTANTE: NÃO usar números reais em testes
-	testPhone := os.Getenv("TEST_WHATSAPP_NUMBER")
-	if testPhone == "" {
-		t.Skip("TEST_WHATSAPP_NUMBER não configurado")
-	}
-
-	err = svc.SendMessage(testPhone, "Teste de mensagem de integração")
-	if err != nil {
-		t.Errorf("Falha ao enviar mensagem: %v", err)
-	}
-}
-*/

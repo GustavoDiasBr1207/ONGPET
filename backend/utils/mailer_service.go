@@ -7,31 +7,45 @@ import (
 
 var (
 	mailerInstance *Mailer
-	mailerOnce     sync.Once
+	mailerMu       sync.Mutex
 )
 
-// InitMailer inicializa o mailer global
+// InitMailer inicializa o mailer global. Pode ser chamado novamente se a
+// inicialização anterior falhou (sem o problema do sync.Once one-shot).
 func InitMailer() error {
-	var err error
-	mailerOnce.Do(func() {
-		m, initErr := New()
-		if initErr != nil {
-			err = initErr
-			log.Println("⚠️ Falha ao inicializar mailer:", initErr)
-			return
-		}
-		mailerInstance = m
-		log.Println("✅ Mailer inicializado com sucesso")
-	})
-	return err
+	mailerMu.Lock()
+	defer mailerMu.Unlock()
+
+	if mailerInstance != nil {
+		return nil
+	}
+
+	m, err := New()
+	if err != nil {
+		log.Println("⚠️ Falha ao inicializar mailer:", err)
+		return err
+	}
+
+	mailerInstance = m
+	log.Println("✅ Mailer inicializado com sucesso")
+	return nil
 }
 
-// GetMailer retorna a instância global do mailer
+// GetMailer retorna a instância global do mailer.
 func GetMailer() *Mailer {
-	if mailerInstance == nil {
-		log.Println("⚠️ Mailer não inicializado, tentando inicializar...")
-		_ = InitMailer()
+	mailerMu.Lock()
+	inst := mailerInstance
+	mailerMu.Unlock()
+
+	if inst != nil {
+		return inst
 	}
+
+	log.Println("⚠️ Mailer não inicializado, tentando inicializar...")
+	_ = InitMailer()
+
+	mailerMu.Lock()
+	defer mailerMu.Unlock()
 	return mailerInstance
 }
 
@@ -40,7 +54,7 @@ func SendEmailPetRegistered(to []string, petName, ownerName string) error {
 	mailer := GetMailer()
 	if mailer == nil {
 		log.Println("⚠️ Mailer indisponível, email não enviado")
-		return nil // Não falha a operação principal
+		return nil
 	}
 
 	subject, body := NewPetRegisteredEmail(petName, ownerName)

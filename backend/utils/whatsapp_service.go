@@ -12,10 +12,11 @@ import (
 )
 
 type WhatsAppService struct {
-	apiURL     string
-	apiKey     string
-	enabled    bool
-	httpClient *http.Client
+	apiURL        string
+	apiKey        string
+	SenderNumber  string
+	enabled       bool
+	httpClient    *http.Client
 }
 
 type WhatsAppMessage struct {
@@ -24,9 +25,10 @@ type WhatsAppMessage struct {
 }
 
 func NewWhatsAppService() (*WhatsAppService, error) {
-	apiURL := strings.TrimSpace(os.Getenv("WHATSAPP_API_URL"))
-	apiKey := strings.TrimSpace(os.Getenv("WHATSAPP_API_KEY"))
-	enabled := strings.ToLower(strings.TrimSpace(os.Getenv("WHATSAPP_ENABLED"))) == "true"
+	apiURL       := strings.TrimSpace(os.Getenv("WHATSAPP_API_URL"))
+	apiKey       := strings.TrimSpace(os.Getenv("WHATSAPP_API_KEY"))
+	senderNumber := strings.TrimSpace(os.Getenv("WHATSAPP_SENDER_NUMBER"))
+	enabled      := strings.ToLower(strings.TrimSpace(os.Getenv("WHATSAPP_ENABLED"))) == "true"
 
 	if !enabled {
 		return &WhatsAppService{enabled: false}, nil
@@ -37,12 +39,14 @@ func NewWhatsAppService() (*WhatsAppService, error) {
 	}
 
 	fmt.Println("📡 WhatsApp API URL:", apiURL)
+	fmt.Println("📱 WhatsApp Sender:", senderNumber)
 
 	return &WhatsAppService{
-		apiURL:     apiURL,
-		apiKey:     apiKey,
-		enabled:    true,
-		httpClient: &http.Client{Timeout: 15 * time.Second},
+		apiURL:       apiURL,
+		apiKey:       apiKey,
+		SenderNumber: senderNumber,
+		enabled:      true,
+		httpClient:   &http.Client{Timeout: 15 * time.Second},
 	}, nil
 }
 
@@ -82,6 +86,7 @@ func (w *WhatsAppService) SendMessage(to, message string) error {
 
 	normalized, err := normalizePhoneNumber(to)
 	if err != nil {
+		fmt.Printf("❌ normalizePhoneNumber(%q): %v\n", to, err)
 		return err
 	}
 
