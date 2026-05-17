@@ -45,6 +45,11 @@ type CampoConfiguracao struct {
 	Regex       string   `json:"regex,omitempty"`
 	MinValor    *float64 `json:"min_valor,omitempty"`
 	MaxValor    *float64 `json:"max_valor,omitempty"`
+
+		// Condicionais
+	Condicional   bool   `json:"condicional,omitempty"`
+	CondicaoCampo string `json:"condicao_campo,omitempty"`
+	CondicaoValor string `json:"condicao_valor,omitempty"`
 }
 
 // ─────────────────────────────────────────────────────────────
