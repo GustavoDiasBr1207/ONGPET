@@ -9,34 +9,48 @@ import (
 
 var (
 	whatsappInstance *WhatsAppService
-	whatsappOnce     sync.Once
+	whatsappMu       sync.Mutex
 )
 
-// InitWhatsAppService inicializa o serviço WhatsApp global
+// InitWhatsAppService inicializa o serviço WhatsApp global. Pode ser chamado
+// novamente se a inicialização anterior falhou.
 func InitWhatsAppService() error {
-	var err error
-	whatsappOnce.Do(func() {
-		svc, initErr := NewWhatsAppService()
-		if initErr != nil {
-			err = initErr
-			log.Println("⚠️ Falha ao inicializar WhatsApp service:", initErr)
-			return
-		}
-		whatsappInstance = svc
-		if svc.enabled {
-			log.Println("✅ WhatsApp service inicializado com sucesso")
-		} else {
-			log.Println("ℹ️ WhatsApp service desabilitado (WHATSAPP_ENABLED != true)")
-		}
-	})
-	return err
+	whatsappMu.Lock()
+	defer whatsappMu.Unlock()
+
+	if whatsappInstance != nil {
+		return nil
+	}
+
+	svc, err := NewWhatsAppService()
+	if err != nil {
+		log.Println("⚠️ Falha ao inicializar WhatsApp service:", err)
+		return err
+	}
+
+	whatsappInstance = svc
+	if svc.enabled {
+		log.Println("✅ WhatsApp service inicializado com sucesso")
+	} else {
+		log.Println("ℹ️ WhatsApp service desabilitado (WHATSAPP_ENABLED != true)")
+	}
+	return nil
 }
 
 // GetWhatsAppService retorna a instância global do serviço WhatsApp
 func GetWhatsAppService() *WhatsAppService {
-	if whatsappInstance == nil {
-		_ = InitWhatsAppService()
+	whatsappMu.Lock()
+	inst := whatsappInstance
+	whatsappMu.Unlock()
+
+	if inst != nil {
+		return inst
 	}
+
+	_ = InitWhatsAppService()
+
+	whatsappMu.Lock()
+	defer whatsappMu.Unlock()
 	return whatsappInstance
 }
 
@@ -64,11 +78,16 @@ func SendWhatsAppAdoptionRequest(telefoneOng, petName, solicitanteName, ongName 
 		message := NewAdoptionRequestWhatsAppMessage(petName, solicitanteName, ongName)
 		start := time.Now()
 
-		svc.SendMessageWithRetry(telefoneOng, message)
+		err := svc.SendMessageWithRetry(telefoneOng, message)
 
 		duration := time.Since(start).Milliseconds()
-		log.Printf("✉️ WhatsApp enviado (nova adoção → ONG) para %s em %dms\n",
-			maskPhoneNumber(telefoneOng), duration)
+		if err != nil {
+			log.Printf("❌ Falha ao enviar WhatsApp (nova adoção → ONG) para %s em %dms: %v\n",
+				maskPhoneNumber(telefoneOng), duration, err)
+		} else {
+			log.Printf("✉️ WhatsApp enviado (nova adoção → ONG) para %s em %dms\n",
+				maskPhoneNumber(telefoneOng), duration)
+		}
 	}()
 }
 
@@ -90,11 +109,16 @@ func SendWhatsAppAdoptionConfirmation(telefoneSolicitante, solicitanteName, petN
 		message := NewAdoptionConfirmationWhatsAppMessage(solicitanteName, petName, ongName)
 		start := time.Now()
 
-		svc.SendMessageWithRetry(telefoneSolicitante, message)
+		err := svc.SendMessageWithRetry(telefoneSolicitante, message)
 
 		duration := time.Since(start).Milliseconds()
-		log.Printf("✉️ WhatsApp enviado (confirmação → solicitante) para %s em %dms\n",
-			maskPhoneNumber(telefoneSolicitante), duration)
+		if err != nil {
+			log.Printf("❌ Falha ao enviar WhatsApp (confirmação → solicitante) para %s em %dms: %v\n",
+				maskPhoneNumber(telefoneSolicitante), duration, err)
+		} else {
+			log.Printf("✉️ WhatsApp enviado (confirmação → solicitante) para %s em %dms\n",
+				maskPhoneNumber(telefoneSolicitante), duration)
+		}
 	}()
 }
 
@@ -117,11 +141,16 @@ func SendWhatsAppAdoptionApproved(telefoneSolicitante, solicitanteName, petName,
 		message := NewAdoptionApprovedWhatsAppMessage(solicitanteName, petName, ongName, ongPhone)
 		start := time.Now()
 
-		svc.SendMessageWithRetry(telefoneSolicitante, message)
+		err := svc.SendMessageWithRetry(telefoneSolicitante, message)
 
 		duration := time.Since(start).Milliseconds()
-		log.Printf("✉️ WhatsApp enviado (aprovação → solicitante) para %s em %dms\n",
-			maskPhoneNumber(telefoneSolicitante), duration)
+		if err != nil {
+			log.Printf("❌ Falha ao enviar WhatsApp (aprovação → solicitante) para %s em %dms: %v\n",
+				maskPhoneNumber(telefoneSolicitante), duration, err)
+		} else {
+			log.Printf("✉️ WhatsApp enviado (aprovação → solicitante) para %s em %dms\n",
+				maskPhoneNumber(telefoneSolicitante), duration)
+		}
 	}()
 }
 
@@ -143,11 +172,16 @@ func SendWhatsAppAdoptionRejected(telefoneSolicitante, solicitanteName, petName,
 		message := NewAdoptionRejectedWhatsAppMessage(solicitanteName, petName, ongName)
 		start := time.Now()
 
-		svc.SendMessageWithRetry(telefoneSolicitante, message)
+		err := svc.SendMessageWithRetry(telefoneSolicitante, message)
 
 		duration := time.Since(start).Milliseconds()
-		log.Printf("✉️ WhatsApp enviado (rejeição → solicitante) para %s em %dms\n",
-			maskPhoneNumber(telefoneSolicitante), duration)
+		if err != nil {
+			log.Printf("❌ Falha ao enviar WhatsApp (rejeição → solicitante) para %s em %dms: %v\n",
+				maskPhoneNumber(telefoneSolicitante), duration, err)
+		} else {
+			log.Printf("✉️ WhatsApp enviado (rejeição → solicitante) para %s em %dms\n",
+				maskPhoneNumber(telefoneSolicitante), duration)
+		}
 	}()
 }
 
@@ -168,11 +202,16 @@ func SendWhatsAppPetRegistered(telefoneOwner, petName, ownerName string) {
 		message := NewPetRegisteredWhatsAppMessage(petName, ownerName)
 		start := time.Now()
 
-		svc.SendMessageWithRetry(telefoneOwner, message)
+		err := svc.SendMessageWithRetry(telefoneOwner, message)
 
 		duration := time.Since(start).Milliseconds()
-		log.Printf("✉️ WhatsApp enviado (novo pet) para %s em %dms\n",
-			maskPhoneNumber(telefoneOwner), duration)
+		if err != nil {
+			log.Printf("❌ Falha ao enviar WhatsApp (novo pet) para %s em %dms: %v\n",
+				maskPhoneNumber(telefoneOwner), duration, err)
+		} else {
+			log.Printf("✉️ WhatsApp enviado (novo pet) para %s em %dms\n",
+				maskPhoneNumber(telefoneOwner), duration)
+		}
 	}()
 }
 

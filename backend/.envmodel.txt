@@ -1,9 +1,36 @@
+# ─── Banco de Dados ───────────────────────────────────────────────────────────
 DATABASE_URL=
+
+# ─── Supabase ─────────────────────────────────────────────────────────────────
 SUPABASE_URL=
 SUPABASE_KEY=
-SUPABASE_SERVICE_ROLE_KEY=
-SUPABASE_BUCKET=
-MINIO_ENDPOINT=
-MINIO_ACCESS_KEY=
-MINIO_SECRET_KEY=
+SUPABASE_JWT_SECRET=
+
+# ─── Supabase Storage Buckets ─────────────────────────────────────────────────
+SUPABASE_BUCKET_PETS=
+SUPABASE_BUCKET_ONGS=
+SUPABASE_BUCKET_FORMULARIOS=
+SUPABASE_BUCKET_BANNERS=
+
+# ─── Email (SendGrid SMTP) ────────────────────────────────────────────────────
+SMTP_HOST=
+SMTP_PORT=
+SMTP_USER=
+SMTP_PASS=
+SMTP_FROM=
+
+# ─── WhatsApp (Evolution API) ─────────────────────────────────────────────────
+WHATSAPP_ENABLED=false
+WHATSAPP_API_URL=
+WHATSAPP_API_KEY=
+WHATSAPP_SENDER_NUMBER=
+TEST_WHATSAPP_NUMBER=
+
+# ─── Administração ────────────────────────────────────────────────────────────
+ADMIN_USER_IDS=
+
+# ─── Swagger ──────────────────────────────────────────────────────────────────
 SWAGGER_ENABLED=false
+
+# ─── Debug ────────────────────────────────────────────────────────────────────
+DEBUG=false
