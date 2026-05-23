@@ -108,7 +108,7 @@ func CheckEmailConfig(c *gin.Context) error {
 	c.JSON(http.StatusOK, gin.H{
 		"status":  "ok",
 		"message": "Email configurado corretamente",
-		"from":    "amigofieladocao@gmail.com",
+		"from":    os.Getenv("SMTP_FROM"),
 	})
 	return nil
 }

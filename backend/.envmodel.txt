@@ -12,12 +12,10 @@ SUPABASE_BUCKET_ONGS=
 SUPABASE_BUCKET_FORMULARIOS=
 SUPABASE_BUCKET_BANNERS=
 
-# ─── Email (SendGrid SMTP) ────────────────────────────────────────────────────
-SMTP_HOST=
-SMTP_PORT=
-SMTP_USER=
+# ─── Email (SendGrid) ────────────────────────────────────────────────────────
 SMTP_PASS=
 SMTP_FROM=
+TEST_EMAIL_TO=
 
 # ─── WhatsApp (Evolution API) ─────────────────────────────────────────────────
 WHATSAPP_ENABLED=false
