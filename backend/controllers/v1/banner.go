@@ -96,8 +96,8 @@ func ReadBanners(c *gin.Context) error {
 	if err != nil || limit <= 0 {
 		return errors.New("limit inválido")
 	}
-	if limit > 100 {
-		return errors.New("limit excede o máximo permitido de 100")
+	if limit > 500 {
+		return errors.New("limit excede o máximo permitido de 500")
 	}
 
 	var total int64

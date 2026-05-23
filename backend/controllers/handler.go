@@ -68,7 +68,7 @@ func HttpStatusForError(msg string) int {
 		"position não pode ser negativo",
 		"title não pode ser vazio",
 		"instagram_url não pode ser vazia",
-		"limit excede o máximo permitido de 100",
+		"limit excede o máximo permitido de 500",
 		"page inválido", "limit inválido",
 		"nenhuma imagem enviada", "tipo de imagem inválido":
 		return http.StatusBadRequest

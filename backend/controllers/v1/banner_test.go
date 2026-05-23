@@ -108,11 +108,11 @@ func TestReadBanners(t *testing.T) {
 			ExpectedErrorMsg: "limit inválido",
 		},
 		{
-			Description:      "Erro - limit acima do máximo (100)",
-			URL:              "/api/v1/banners?limit=101",
+			Description:      "Erro - limit acima do máximo (500)",
+			URL:              "/api/v1/banners?limit=501",
 			Method:           http.MethodGet,
 			ExpectedStatus:   http.StatusBadRequest,
-			ExpectedErrorMsg: "limit excede o máximo permitido de 100",
+			ExpectedErrorMsg: "limit excede o máximo permitido de 500",
 		},
 	}
 
