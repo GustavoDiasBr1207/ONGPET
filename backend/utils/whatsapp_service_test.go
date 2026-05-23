@@ -1,9 +1,12 @@
 package utils
 
 import (
+	"net"
+	"net/url"
 	"os"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/joho/godotenv"
 )
@@ -179,6 +182,20 @@ func TestSendRealWhatsApp(t *testing.T) {
 
 	if !svc.enabled {
 		t.Skip("WhatsApp desabilitado — verifique WHATSAPP_ENABLED=true no .env")
+	}
+
+	// Verifica se a Evolution API está acessível antes de tentar enviar
+	u, err := url.Parse(svc.apiURL)
+	if err == nil && u.Host != "" {
+		host := u.Host
+		if u.Port() == "" {
+			host += ":80"
+		}
+		conn, dialErr := net.DialTimeout("tcp", host, 2*time.Second)
+		if dialErr != nil {
+			t.Skipf("Evolution API não acessível (%s) — rode o Docker Compose para executar este teste", u.Host)
+		}
+		conn.Close()
 	}
 
 	msg := NewAdoptionConfirmationWhatsAppMessage("Equipe OngPet", "Rex (teste)", "ONG Teste")

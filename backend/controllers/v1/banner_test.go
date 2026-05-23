@@ -107,6 +107,13 @@ func TestReadBanners(t *testing.T) {
 			ExpectedStatus:   http.StatusBadRequest,
 			ExpectedErrorMsg: "limit inválido",
 		},
+		{
+			Description:      "Erro - limit acima do máximo (100)",
+			URL:              "/api/v1/banners?limit=101",
+			Method:           http.MethodGet,
+			ExpectedStatus:   http.StatusBadRequest,
+			ExpectedErrorMsg: "limit excede o máximo permitido de 100",
+		},
 	}
 
 	runTestCases(t, testCases)
@@ -290,6 +297,49 @@ func TestCreateBanner(t *testing.T) {
 			Body:           []byte(`{invalid}`),
 			ExpectedStatus: http.StatusBadRequest,
 		},
+		{
+			Description: "Erro - end_at anterior a start_at",
+			URL:         "/api/v1/banners",
+			Method:      http.MethodPost,
+			Body: mustMarshal(t, map[string]any{
+				"title":         "Banner X",
+				"instagram_url": "https://instagram.com/ongpet",
+				"start_at":      time.Now().Add(48 * time.Hour).Format(time.RFC3339),
+				"end_at":        time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+				"ong_id":        testOng.ID,
+			}),
+			ExpectedStatus:   http.StatusBadRequest,
+			ExpectedErrorMsg: "end_at deve ser posterior a start_at",
+		},
+		{
+			Description: "Erro - position negativo",
+			URL:         "/api/v1/banners",
+			Method:      http.MethodPost,
+			Body: mustMarshal(t, map[string]any{
+				"title":         "Banner X",
+				"instagram_url": "https://instagram.com/ongpet",
+				"start_at":      validDates["start_at"],
+				"end_at":        validDates["end_at"],
+				"ong_id":        testOng.ID,
+				"position":      -1,
+			}),
+			ExpectedStatus:   http.StatusBadRequest,
+			ExpectedErrorMsg: "position não pode ser negativo",
+		},
+		{
+			Description: "Erro - ONG não encontrada",
+			URL:         "/api/v1/banners",
+			Method:      http.MethodPost,
+			Body: mustMarshal(t, map[string]any{
+				"title":         "Banner X",
+				"instagram_url": "https://instagram.com/ongpet",
+				"start_at":      validDates["start_at"],
+				"end_at":        validDates["end_at"],
+				"ong_id":        "00000000-0000-0000-0000-000000000099",
+			}),
+			ExpectedStatus:   http.StatusNotFound,
+			ExpectedErrorMsg: "ONG não encontrada",
+		},
 	}
 
 	runTestCases(t, testCases)
@@ -372,6 +422,49 @@ func TestUpdateBanner(t *testing.T) {
 			Method:         http.MethodPut,
 			Body:           []byte(`{invalid}`),
 			ExpectedStatus: http.StatusBadRequest,
+		},
+		{
+			Description:      "Erro - title vazio",
+			URL:              fmt.Sprintf("/api/v1/banners/%s", banner.ID),
+			Method:           http.MethodPut,
+			Body:             mustMarshal(t, map[string]any{"title": ""}),
+			ExpectedStatus:   http.StatusBadRequest,
+			ExpectedErrorMsg: "title não pode ser vazio",
+		},
+		{
+			Description:      "Erro - instagram_url vazia",
+			URL:              fmt.Sprintf("/api/v1/banners/%s", banner.ID),
+			Method:           http.MethodPut,
+			Body:             mustMarshal(t, map[string]any{"instagram_url": ""}),
+			ExpectedStatus:   http.StatusBadRequest,
+			ExpectedErrorMsg: "instagram_url não pode ser vazia",
+		},
+		{
+			Description:      "Erro - position negativo",
+			URL:              fmt.Sprintf("/api/v1/banners/%s", banner.ID),
+			Method:           http.MethodPut,
+			Body:             mustMarshal(t, map[string]any{"position": -3}),
+			ExpectedStatus:   http.StatusBadRequest,
+			ExpectedErrorMsg: "position não pode ser negativo",
+		},
+		{
+			Description: "Erro - end_at anterior a start_at",
+			URL:         fmt.Sprintf("/api/v1/banners/%s", banner.ID),
+			Method:      http.MethodPut,
+			Body: mustMarshal(t, map[string]any{
+				"start_at": time.Now().Add(48 * time.Hour).Format(time.RFC3339),
+				"end_at":   time.Now().Add(24 * time.Hour).Format(time.RFC3339),
+			}),
+			ExpectedStatus:   http.StatusBadRequest,
+			ExpectedErrorMsg: "end_at deve ser posterior a start_at",
+		},
+		{
+			Description:      "Erro - ONG não encontrada ao atualizar ong_id",
+			URL:              fmt.Sprintf("/api/v1/banners/%s", banner.ID),
+			Method:           http.MethodPut,
+			Body:             mustMarshal(t, map[string]any{"ong_id": "00000000-0000-0000-0000-000000000099"}),
+			ExpectedStatus:   http.StatusNotFound,
+			ExpectedErrorMsg: "ONG não encontrada",
 		},
 	}
 
