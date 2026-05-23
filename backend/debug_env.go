@@ -17,28 +17,31 @@ func debugEnv() {
 		fmt.Println("⚠️ .env não encontrado")
 	}
 
-	url    := strings.TrimSpace(os.Getenv("SUPABASE_URL"))
-	key    := strings.TrimSpace(os.Getenv("SUPABASE_KEY"))
-	bucket := strings.TrimSpace(os.Getenv("SUPABASE_BUCKET"))
+	url   := strings.TrimSpace(os.Getenv("SUPABASE_URL"))
+	key   := strings.TrimSpace(os.Getenv("SUPABASE_KEY"))
+	dbURL := strings.TrimSpace(os.Getenv("DATABASE_URL"))
 
 	fmt.Println("\n=== DEBUG: VARIÁVEIS DE AMBIENTE ===")
-	fmt.Printf("SUPABASE_URL: %s\n", url)
-	fmt.Printf("SUPABASE_KEY: %s...\n", truncate(key, 30))
-	fmt.Printf("SUPABASE_BUCKET: %s\n", bucket)
-	fmt.Printf("Comprimento da chave: %d caracteres\n", len(key))
+	fmt.Printf("DATABASE_URL:        %s\n", truncate(dbURL, 40))
+	fmt.Printf("SUPABASE_URL:        %s\n", url)
+	fmt.Printf("SUPABASE_KEY:        %s...\n", truncate(key, 30))
+	fmt.Printf("WHATSAPP_ENABLED:    %s\n", os.Getenv("WHATSAPP_ENABLED"))
+	fmt.Printf("SWAGGER_ENABLED:     %s\n", os.Getenv("SWAGGER_ENABLED"))
+	fmt.Printf("GIN_MODE:            %s\n", os.Getenv("GIN_MODE"))
 
-	if url == "" {
-		fmt.Println("❌ ERRO: SUPABASE_URL está vazia!")
+	missing := false
+	for _, v := range []struct{ name, val string }{
+		{"DATABASE_URL", dbURL},
+		{"SUPABASE_URL", url},
+		{"SUPABASE_KEY", key},
+	} {
+		if v.val == "" {
+			fmt.Printf("❌ ERRO: %s está vazia!\n", v.name)
+			missing = true
+		}
 	}
-	if key == "" {
-		fmt.Println("❌ ERRO: SUPABASE_KEY está vazia!")
-	}
-	if bucket == "" {
-		fmt.Println("❌ ERRO: SUPABASE_BUCKET está vazia!")
-	}
-
-	if url != "" && key != "" && bucket != "" {
-		fmt.Println("✅ Todas as variáveis obrigatórias estão presentes!")
+	if !missing {
+		fmt.Println("✅ Variáveis obrigatórias presentes!")
 	}
 	fmt.Println("=====================================")
 }

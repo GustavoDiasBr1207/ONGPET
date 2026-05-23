@@ -4,7 +4,6 @@ DATABASE_URL=
 # ─── Supabase ─────────────────────────────────────────────────────────────────
 SUPABASE_URL=
 SUPABASE_KEY=
-SUPABASE_JWT_SECRET=
 
 # ─── Supabase Storage Buckets ─────────────────────────────────────────────────
 SUPABASE_BUCKET_PETS=
@@ -27,8 +26,7 @@ TEST_WHATSAPP_NUMBER=
 # ─── Administração ────────────────────────────────────────────────────────────
 ADMIN_USER_IDS=
 
-# ─── Swagger ──────────────────────────────────────────────────────────────────
-SWAGGER_ENABLED=false
-
-# ─── Debug ────────────────────────────────────────────────────────────────────
+# ─── Servidor ────────────────────────────────────────────────────────────────
+GIN_MODE=release                 # release | debug
+SWAGGER_ENABLED=false            # true habilita /swagger/index.html
 DEBUG=false
