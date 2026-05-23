@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"math"
+	"mime/multipart"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -419,51 +420,83 @@ func UploadRespostaImagem(c *gin.Context) error {
 		return fmt.Errorf("campo '%s' não é do tipo imagem", cfg.Label)
 	}
 
-	file, err := c.FormFile("imagem")
-	if err != nil {
-		return errors.New("nenhuma imagem enviada")
+	// Tenta ler múltiplos arquivos enviados sob a chave "imagem" no multipart form
+	form, formErr := c.MultipartForm()
+	var files []*multipart.FileHeader
+	if formErr == nil && form != nil {
+		files = form.File["imagem"]
 	}
 
-	if !utils.IsValidImage(file) {
-		return errors.New("tipo de imagem inválido")
-	}
-
-	if resposta.Valor != "" {
-		if objectPath, pathErr := utils.ExtractObjectPath(resposta.Valor, utils.SupabaseBucketFormularios); pathErr == nil {
-			if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath, ""); delErr != nil {
-				fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
-			}
-		} else {
-			fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
+	// Caso não existam arquivos múltiplos ou ocorra erro no multipart,
+	// tenta obter arquivo único (compatibilidade retroativa)
+	if len(files) == 0 {
+		file, err := c.FormFile("imagem")
+		if err == nil && file != nil {
+			files = append(files, file)
 		}
 	}
 
-	optimized, err := utils.ResizeAndCompressImage(file, 1280, 70)
-	if err != nil {
-		return err
+	if len(files) == 0 {
+		return errors.New("nenhuma imagem enviada")
 	}
 
-	url, err := utils.UploadOptimizedFile(
-		optimized.Buffer,
-		optimized.ContentType,
-		optimized.Extension,
-		utils.SupabaseBucketFormularios,
-		pedidoID.String(),
-		cfg.Label,
-		1,
-		"",
-	)
-	if err != nil {
-		return err
+	// Validar todas as imagens antes de iniciar uploads
+	for _, file := range files {
+		if !utils.IsValidImage(file) {
+			return errors.New("tipo de imagem inválido")
+		}
 	}
 
-	resposta.Valor = url
+	// Deletar as imagens armazenadas anteriormente para evitar lixo no storage
+	if resposta.Valor != "" {
+		oldUrls := strings.Split(resposta.Valor, ",")
+		for _, oldUrl := range oldUrls {
+			trimmed := strings.TrimSpace(oldUrl)
+			if trimmed != "" {
+				if objectPath, pathErr := utils.ExtractObjectPath(trimmed, utils.SupabaseBucketFormularios); pathErr == nil {
+					if delErr := utils.DeleteFile(utils.SupabaseBucketFormularios, objectPath, ""); delErr != nil {
+						fmt.Printf("⚠️ Aviso: não foi possível deletar imagem anterior do storage: %s\n", delErr.Error())
+					}
+				} else {
+					fmt.Printf("⚠️ Aviso: não foi possível extrair path do storage: %s\n", pathErr.Error())
+				}
+			}
+		}
+	}
+
+	// Fazer upload e otimização de cada imagem
+	var urls []string
+	for i, file := range files {
+		optimized, err := utils.ResizeAndCompressImage(file, 1280, 70)
+		if err != nil {
+			return err
+		}
+
+		// Passamos i+1 como a posição para garantir nomes de arquivos únicos no storage
+		url, err := utils.UploadOptimizedFile(
+			optimized.Buffer,
+			optimized.ContentType,
+			optimized.Extension,
+			utils.SupabaseBucketFormularios,
+			pedidoID.String(),
+			cfg.Label,
+			i+1,
+			"",
+		)
+		if err != nil {
+			return err
+		}
+		urls = append(urls, url)
+	}
+
+	// Armazena as URLs unidas por vírgula no banco
+	resposta.Valor = strings.Join(urls, ",")
 	if err := db.Save(&resposta).Error; err != nil {
 		return err
 	}
 
 	c.JSON(http.StatusOK, gin.H{
-		"message":  "Imagem enviada com sucesso",
+		"message":  "Imagem(ns) enviada(s) com sucesso",
 		"resposta": resposta,
 	})
 	return nil
