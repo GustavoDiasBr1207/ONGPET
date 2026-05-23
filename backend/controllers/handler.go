@@ -64,6 +64,11 @@ func HttpStatusForError(msg string) int {
 		"end_at deve estar no formato RFC3339 (ex: 2026-03-11T15:04:05Z)",
 		"start_at deve estar no formato RFC3339",
 		"end_at deve estar no formato RFC3339",
+		"end_at deve ser posterior a start_at",
+		"position não pode ser negativo",
+		"title não pode ser vazio",
+		"instagram_url não pode ser vazia",
+		"limit excede o máximo permitido de 100",
 		"page inválido", "limit inválido",
 		"nenhuma imagem enviada", "tipo de imagem inválido":
 		return http.StatusBadRequest

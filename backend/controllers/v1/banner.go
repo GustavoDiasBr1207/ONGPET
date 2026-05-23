@@ -96,6 +96,9 @@ func ReadBanners(c *gin.Context) error {
 	if err != nil || limit <= 0 {
 		return errors.New("limit inválido")
 	}
+	if limit > 100 {
+		return errors.New("limit excede o máximo permitido de 100")
+	}
 
 	var total int64
 	if err := query.Count(&total).Error; err != nil {
@@ -209,6 +212,10 @@ func CreateBanner(c *gin.Context) error {
 		return errors.New("ong_id é obrigatório")
 	}
 
+	if !endAt.After(startAt) {
+		return errors.New("end_at deve ser posterior a start_at")
+	}
+
 	active := true
 	if req.Active != nil {
 		active = *req.Active
@@ -216,6 +223,9 @@ func CreateBanner(c *gin.Context) error {
 
 	position := 0
 	if req.Position != nil {
+		if *req.Position < 0 {
+			return errors.New("position não pode ser negativo")
+		}
 		position = *req.Position
 	}
 
@@ -373,36 +383,60 @@ func UpdateBanner(c *gin.Context) error {
 	}
 
 	if req.Title != nil {
-		if t := strings.TrimSpace(*req.Title); t != "" {
-			banner.Title = t
+		t := strings.TrimSpace(*req.Title)
+		if t == "" {
+			return errors.New("title não pode ser vazio")
 		}
+		banner.Title = t
 	}
 	if req.InstagramURL != nil {
-		if u := strings.TrimSpace(*req.InstagramURL); u != "" {
-			banner.InstagramURL = u
+		u := strings.TrimSpace(*req.InstagramURL)
+		if u == "" {
+			return errors.New("instagram_url não pode ser vazia")
 		}
+		banner.InstagramURL = u
 	}
+
+	effectiveStart := banner.StartAt
+	effectiveEnd := banner.EndAt
 	if req.StartAt != nil {
 		t, parseErr := time.Parse(time.RFC3339, *req.StartAt)
 		if parseErr != nil {
 			return errors.New("start_at deve estar no formato RFC3339")
 		}
-		banner.StartAt = t
+		effectiveStart = t
 	}
 	if req.EndAt != nil {
 		t, parseErr := time.Parse(time.RFC3339, *req.EndAt)
 		if parseErr != nil {
 			return errors.New("end_at deve estar no formato RFC3339")
 		}
-		banner.EndAt = t
+		effectiveEnd = t
 	}
+	if req.StartAt != nil || req.EndAt != nil {
+		if !effectiveEnd.After(effectiveStart) {
+			return errors.New("end_at deve ser posterior a start_at")
+		}
+		banner.StartAt = effectiveStart
+		banner.EndAt = effectiveEnd
+	}
+
 	if req.Active != nil {
 		banner.Active = *req.Active
 	}
 	if req.Position != nil {
+		if *req.Position < 0 {
+			return errors.New("position não pode ser negativo")
+		}
 		banner.Position = *req.Position
 	}
 	if req.OngID != nil && *req.OngID != uuid.Nil {
+		if err := db.First(&models.Ong{}, "id = ?", *req.OngID).Error; err != nil {
+			if errors.Is(err, gorm.ErrRecordNotFound) {
+				return errors.New("ONG não encontrada")
+			}
+			return err
+		}
 		banner.OngID = req.OngID
 	}
 
