@@ -34,15 +34,15 @@ func InitSupabase() {
 	if SupabaseURL == "" || SupabaseKey == "" {
 		panic("❌ SUPABASE_URL e SUPABASE_KEY são obrigatórios")
 	}
-	if SupabaseBucketPets == "" || SupabaseBucketOngs == "" || SupabaseBucketFormularios == "" {
-		panic("❌ SUPABASE_BUCKET_PETS, SUPABASE_BUCKET_ONGS e SUPABASE_BUCKET_FORMULARIOS são obrigatórios")
-	}
-	if SupabaseBucketBanners == "" {
-		SupabaseBucketBanners = SupabaseBucketOngs
-		fmt.Println("⚠️ SUPABASE_BUCKET_BANNERS não configurado, usando SUPABASE_BUCKET_ONGS como fallback")
+	if SupabaseBucketPets == "" || SupabaseBucketOngs == "" || SupabaseBucketFormularios == "" || SupabaseBucketBanners == "" {
+		panic("❌ SUPABASE_BUCKET_PETS, SUPABASE_BUCKET_ONGS, SUPABASE_BUCKET_FORMULARIOS e SUPABASE_BUCKET_BANNERS são obrigatórios")
 	}
 
 	fmt.Println("✅ Supabase Storage (REST) inicializado com sucesso")
+	fmt.Printf("   bucket pets:        %s\n", SupabaseBucketPets)
+	fmt.Printf("   bucket ongs:        %s\n", SupabaseBucketOngs)
+	fmt.Printf("   bucket formularios: %s\n", SupabaseBucketFormularios)
+	fmt.Printf("   bucket banners:     %s\n", SupabaseBucketBanners)
 }
 
 // IsValidImage valida tipos de imagem permitidos
