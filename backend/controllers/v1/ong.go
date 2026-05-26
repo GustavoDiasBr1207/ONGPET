@@ -29,6 +29,7 @@ type CreateOngInput struct {
 	Site            string           `json:"site"             example:"https://minhaong.org"`
 	Instagram       string           `json:"instagram"        example:"@minhaong"`
 	Regiao          models.OngRegiao `json:"regiao"           example:"Serra"`
+	Termo           *string          `json:"termo"            example:"Termo de adoção da ONG..."`
 }
 
 type OngListResponse struct {
@@ -184,6 +185,9 @@ func CreateOng(c *gin.Context) error {
 			Instagram:       req.Instagram,
 			Regiao:          req.Regiao,
 			UserID:          userID,
+		}
+		if req.Termo != nil {
+			ong.Termo = *req.Termo
 		}
 		return tx.Create(&ong).Error
 	})
@@ -411,6 +415,9 @@ func UpdateOng(c *gin.Context) error {
 		}
 		if req.Regiao != "" {
 			ong.Regiao = req.Regiao
+		}
+		if req.Termo != nil {
+			ong.Termo = strings.TrimSpace(*req.Termo)
 		}
 
 		return tx.Save(&ong).Error

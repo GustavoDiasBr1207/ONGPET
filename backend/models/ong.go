@@ -25,6 +25,7 @@ type Ong struct {
 	Instagram       string    `gorm:"type:text" json:"instagram"`
 	Regiao          OngRegiao `gorm:"type:text" json:"area_de_atuacao"`
 	Logo            string    `gorm:"type:text" json:"logo"`
+	Termo           string    `gorm:"type:text" json:"termo"`
 
 	UserID uuid.UUID `gorm:"type:uuid;not null;index" json:"user_id"`
 }
